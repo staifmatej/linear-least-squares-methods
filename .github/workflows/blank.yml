@@ -1,16 +1,18 @@
 name: Tests
 on:
   push:
-    branches: [ main, master ]
+    branches: main
   pull_request:
-    branches: [ main, master ]
+    branches: main
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         python-version: ['3.10', '3.11', '3.12']
+        os: [ubuntu-latest, macos-latest] # Windows doesn't deserve a spot :)
     
     steps:
     - uses: actions/checkout@v4
@@ -28,7 +30,9 @@ jobs:
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     
     - name: Run pylint
+      working-directory: ./linear-least-squares-methods
       run: pylint . --disable=C0301,C0103
     
-    - name: Run tests
+    - name: Run pytest
+      working-directory: ./linear-least-squares-methods
       run: pytest -v
