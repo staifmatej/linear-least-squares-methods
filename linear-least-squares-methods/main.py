@@ -12,6 +12,27 @@ E_BOLD = "\033[0m"
 S_RED = "\033[91m"
 E_RED = "\033[0m"
 
+
+def print_data_loaded(X,y):
+    print("\n========= Data loaded =========")
+    print(f"X shape: {X.shape}")
+    print(f"y shape: {y.shape}")
+    print("===============================\n")
+
+def print_selected_specifications(engine_choice, regression_types, function_types):
+    engine_mapping = {
+        1: "approaches/least_squares_cpp.cpp",
+        2: "approaches/least_squares_numpy.py",
+        3: "approaches/least_squares_numba.py",
+        4: "approaches/least_squares_pure.py"
+    }
+
+    print("\n==== Selected Configuration ===")
+    print(f"Engine: {engine_mapping.get(engine_choice)}")
+    print(f"Regression types: {regression_types}")
+    print(f"Function types: {function_types}")
+    print("===============================\n")
+
 class DataLoader:
     """Class for loading data from various sources."""
 
@@ -33,9 +54,9 @@ class DataLoader:
                 choice = int(input("\nChoose option (1-5): "))
                 if 1 <= choice <= 5:
                     return choice
-                print("Please enter number 1-5")
+                print(f"{S_RED}Invalid input{E_RED}: Please enter number 1-5")
             except ValueError:
-                print("Please enter a valid number")
+                print(f"{S_RED}Invalid input{E_RED}: Please enter a valid number")
 
     def input_2d_points(self):
         """Input 2D points manually."""
@@ -49,8 +70,8 @@ class DataLoader:
         while 1:
             user_input = input("x,y: ").strip()
             if user_input.lower() == 'done':
-                if point_count <= 2:
-                    print("\nNeed at least 3 points!")
+                if point_count < 2:
+                    print(f"\n{S_RED}Warning{E_RED}: Need at least 2 points!")
                     continue
                 break
 
@@ -61,7 +82,7 @@ class DataLoader:
                 print(f"Added point: [{x_2d_point}, {y_2d_point}]")
                 point_count += 1
             except ValueError:
-                print("Invalid format! Use: x,y (example: 1.5,2.3)")
+                print(f"{S_RED}Invalid input{E_RED}: Use x,y format (example: 1.5,2.3)")
 
         return np.array(x_data).reshape(-1, 1), np.array(y_data)
 
@@ -74,41 +95,41 @@ class DataLoader:
                 n_features = int(input("How many features (X dimensions): "))
                 if n_features >= 1:
                     break
-                print("Must be at least 1 feature")
+                print(f"{S_RED}Invalid input{E_RED}: Must be at least 1 feature")
             except ValueError:
-                print("Please enter a valid number")
+                print(f"{S_RED}Invalid input{E_RED}: Please enter a valid number")
 
-        print(f"\nEnter data points with {n_features} features + 1 target value")
-        print(f"Format: x₁,x₂,...,x{n_features},y")
-        print("Type 'done' when finished")
+        while 1:
+            print(f"\nEnter data points with {n_features} features + 1 target value")
+            print(f"Format: x_1,x_2,...,x_{n_features},y")
+            print("Type 'done' when finished")
 
-        data_points = []
+            data_points = []
 
-        while True:
-            user_input = input(f"x1,x2,...,x{n_features},y: ").strip()
-            if user_input.lower() == 'done':
-                break
+            while 1:
+                user_input = input(f"x1,x2,...,x{n_features},y: ").strip()
+                if user_input.lower() == 'done':
+                    break
 
-            try:
-                values = list(map(float, user_input.split(',')))
-                if len(values) != n_features + 1:
-                    print(f"Expected {n_features + 1} values, got {len(values)}")
-                    continue
+                try:
+                    values = list(map(float, user_input.split(',')))
+                    if len(values) != n_features + 1:
+                        print(f"Expected {n_features + 1} values, got {len(values)}")
+                        continue
 
-                data_points.append(values)
-                print(f"Added point: {values}")
-            except ValueError:
-                print("Invalid format! Use numbers separated by commas")
+                    data_points.append(values)
+                    print(f"Added point: {values}")
+                except ValueError:
+                    print(f"{S_RED}Invalid format{E_RED}: Use numbers separated by commas")
 
-        if len(data_points) < 2:
-            print("Need at least 2 points!")
-            return self.input_multidimensional()
+            if len(data_points) >= 2:
 
-        data_array = np.array(data_points)
-        X_multidim = data_array[:, :-1]  # All columns except last
-        y_multidim = data_array[:, -1]  # Last column
-
-        return X_multidim, y_multidim
+                data_array = np.array(data_points)
+                X_multidim = data_array[:, :-1]
+                y_multidim = data_array[:, -1]
+                return X_multidim, y_multidim
+            else:
+                print(f"{S_RED}Invalid input{E_RED}: Need at least 2 points! Please try again.")
 
     def _find_csv_files(self):
         """Find CSV files recursively in all subdirectories using os.walk()."""
@@ -131,17 +152,17 @@ class DataLoader:
 
         # Check if file is empty
         if data.empty:
-            print(f"\nError: {filename} is empty!")
-            return self.load_from_csv()
+            print(f"\n{S_RED}Error{E_RED}: {filename} is empty!")
+            raise ValueError("Empty file")
 
         # Check minimum requirements
         if data.shape[0] < 2:
-            print(f"\nError: {filename} has only {data.shape[0]} rows. Need at least 2 rows!")
-            return self.load_from_csv()
+            print(f"\n{S_RED}Error{E_RED}: {filename} has only {data.shape[0]} rows. Need at least 2 rows!")
+            raise ValueError("Insufficient rows")
 
         if data.shape[1] < 2:
-            print(f"\nError: {filename} has only {data.shape[1]} columns. Need at least 2 columns!")
-            return self.load_from_csv()
+            print(f"\n{S_RED}Error{E_RED}: {filename} has only {data.shape[1]} columns. Need at least 2 columns!")
+            raise ValueError("Insufficient columns")
 
         print(f"\nLoaded {filename} with shape: {data.shape}")
         print("First few rows:")
@@ -153,8 +174,8 @@ class DataLoader:
         # Select target column
         y_col = input("Enter target column name (y): ").strip()
         if y_col not in data.columns:
-            print("Column not found!")
-            return self.load_from_csv()
+            print(f"{S_RED}Warning{E_RED}: Column not found!")
+            raise ValueError("Column not found")
 
         # Select feature columns
         print("Enter feature column names separated by comma")
@@ -197,48 +218,78 @@ class DataLoader:
 
     def load_from_csv(self):
         """Load data from CSV file."""
-        csv_files = self._find_csv_files()
+        while 1:
+            csv_files = self._find_csv_files()
 
-        if not csv_files:
-            print("\nNo CSV files found in current directory or subdirectories!")
-            filename = input("Enter full path to CSV file: ")
-        else:
-            filename = None
-            filename, csv_files = self._csv_files_not_found(filename, csv_files)
+            if not csv_files:
+                print(f"\n{S_RED}Warning{E_RED}: No CSV files found in current directory or subdirectories!")
+                filename = input("Enter full path to CSV file: ")
+            else:
+                filename = None
+                filename, csv_files = self._csv_files_not_found(filename, csv_files)
 
-        try:
-            X_csv, y_csv = self._csv_files_read_data(filename)
-            return X_csv, y_csv
-        except FileNotFoundError:
-            print(f"File {filename} not found!")
-            return self.load_from_csv()
-        except (OSError, ValueError, KeyError) as e:
-            print(f"Error loading file: {e}")
-            return self.load_from_csv()
+            try:
+                X_csv, y_csv = self._csv_files_read_data(filename)
+                return X_csv, y_csv
+            except FileNotFoundError:
+                print(f"{S_RED}Warning{E_RED}: File {filename} not found! Please try again.")
+            except (OSError, ValueError, KeyError) as e:
+                print(f"{S_RED}Warning{E_RED}: Error loading file: {e}. Please try again.")
 
     def generate_synthetic_data(self):
         """Generate synthetic polynomial data."""
         print("\nSynthetic data generation")
 
-        try:
-            n_samples = int(input("Number of samples (default 50): ") or "50")
-            poly_degree_synthetic = int(input("True polynomial degree (default 3): ") or "3")
-            noise_level = float(input("Noise level (default 0.1): ") or "0.1")
-        except ValueError:
-            print("Using default values")
-            n_samples, degree, noise_level = 50, 3, 0.1
+        while 1:
+            try:
+                n_samples = int(input("Number of samples (default 50): ") or "50")
+                if n_samples < 2:
+                    print(f"{S_RED}Invalid input{E_RED}: Number of samples must be at least 2")
+                    continue
+                if n_samples > 1e10:
+                    print(f"{S_RED}Invalid input{E_RED}: Number of samples too large (max. 1e10)")
+                    continue
+                break
+            except ValueError:
+                print(f"{S_RED}Invalid input{E_RED}: Please enter a valid number")
+
+        while 1:
+            try:
+                poly_degree_synthetic = int(input("True polynomial degree (default 3): ") or "3")
+                if poly_degree_synthetic < 1:
+                    print(f"{S_RED}Invalid input{E_RED}: Polynomial degree must be at least 1")
+                    continue
+                if poly_degree_synthetic > 100:
+                    print(f"{S_RED}Warning{E_RED}: Polynomial degree too extremely high (max. 100)")
+                    continue
+                break
+            except ValueError:
+                print(f"{S_RED}Invalid input{E_RED}: Please enter a valid number")
+
+        while 1:
+            try:
+                noise_level = float(input("Noise level (default 0.1): ") or "0.1")
+                if noise_level < 0:
+                    print(f"{S_RED}Invalid input{E_RED}: Noise level cannot be negative")
+                    continue
+                if noise_level > 100:
+                    print(f"{S_RED}Invalid input{E_RED}: Noise level too high (max. 100)")
+                    continue
+                break
+            except ValueError:
+                print(f"{S_RED}Invalid input{E_RED}: Please enter a valid number")
 
         np.random.seed(42)
         x_synthetic = np.linspace(-2, 2, n_samples)
 
         # Generate random coefficients
-        true_coeffs = np.random.randn(degree + 1)
+        true_coeffs = np.random.randn(poly_degree_synthetic + 1)
 
         # Generate polynomial
         y_synthetic_true = sum(coeff * x_synthetic ** i for i, coeff in enumerate(true_coeffs))
         y_synthetic_noisy = y_synthetic_true + noise_level * np.random.randn(n_samples)
 
-        print(f"Generated {n_samples} points with degree {degree} polynomial")
+        print(f"Generated {n_samples} points with degree {poly_degree_synthetic} polynomial")
         print(f"True coefficients: {true_coeffs}")
 
         return x_synthetic.reshape(-1, 1), y_synthetic_noisy
@@ -252,31 +303,39 @@ class DataLoader:
         print("4. Sinusoidal function")
         print("===============================\n")
 
-        choice = input("Choose example (1-4): ").strip()
+        while 1:
+            try:
+                choice = int(input("Choose example (1-4): "))
+                if 1 <= choice <= 4:
+                    break
+                print(f"{S_RED}Invalid input{E_RED}: Please enter number 1-4")
+            except ValueError:
+                print(f"{S_RED}Invalid input{E_RED}: Please enter a valid number")
 
-        if choice == "1":
+        if choice == 1:
             # House prices example
             x_house_size = np.array([50, 80, 100, 120, 150, 180, 200, 250, 300])
             y_house_price = np.array([150, 200, 240, 280, 320, 350, 380, 450, 500])
             return x_house_size.reshape(-1, 1), y_house_price
 
-        if choice == "2":
+        elif choice == 2:
             # Temperature data
             x_time = np.linspace(0, 24, 25)  # 24 hours
             y_temperature = 15 + 10 * np.sin(2 * np.pi * x_time / 24) + np.random.normal(0, 1, 25)
             return x_time.reshape(-1, 1), y_temperature
 
-        if choice == "3":
+        elif choice == 3:
             # Quadratic function
             x_quadratic = np.linspace(-3, 3, 20)
             y_quadratic = 2 * x_quadratic ** 2 + 3 * x_quadratic + 1 + np.random.normal(0, 2, 20)
             return x_quadratic.reshape(-1, 1), y_quadratic
 
-        # Default sinusoidal (choice == "4")
-        np.random.seed(42)
-        x_sin = np.linspace(0, 4 * np.pi, 100)  # 100 points over 4π
-        y_sin = 3 * np.sin(x_sin) + 0.5 * np.sin(3 * x_sin) + np.random.normal(0, 0.3, 100)
-        return x_sin.reshape(-1, 1), y_sin
+        else:  # choice == 4
+            # Sinusoidal function
+            np.random.seed(42)
+            x_sin = np.linspace(0, 4 * np.pi, 100)  # 100 points over 4π
+            y_sin = 3 * np.sin(x_sin) + 0.5 * np.sin(3 * x_sin) + np.random.normal(0, 0.3, 100)
+            return x_sin.reshape(-1, 1), y_sin
 
     def get_data(self):
         """Main method to get data based on user choice."""
@@ -294,51 +353,136 @@ class DataLoader:
         return self.use_example_dataset()
 
 
-if __name__ == "__main__":
-    print(f"{S_BOLD}=== Linear Least Squares Methods Demo ==={E_BOLD}")
+class UserInputHandler:
+    """Class for handling user input selection for regression engines, types, and functions."""
 
+    def __init__(self):
+        pass
+
+    def get_engine_choice(self):
+        """Get regression engine choice from user."""
+
+        print("\n===== Regression Engines =====")
+        print("1. C++ with ML Pack")
+        print("2. Python with Numpy")
+        print("3. Python with Numba")
+        print("4. Pure Python with for-loops")
+        print(f"{S_BOLD}* Lasso/ElasticNet use sklearn coordinate descent{E_BOLD}")
+        print("===============================")
+
+        while 1:
+            try:
+                choice = int(input("\nChoose option (1-4): "))
+                if 1 <= choice <= 4:
+                    return choice
+                print(f"{S_RED}Invalid input{E_RED}: Please enter number 1-4")
+            except ValueError:
+                print(f"{S_RED}Invalid input{E_RED}: Please enter a valid number")
+
+    def get_regression_types(self):
+        """Get regression types selection from user."""
+
+        print("\n===== Types of regression =====")
+        print("1. Polynomial regression (Least Squares)")
+        print("2. Ridge regression (Least Squares)")
+        print("3. Lasso Regression (CoordinateDescent)")
+        print("4. Elastic Net Regression (CoordinateDescent)")
+        print("===============================\n")
+
+        while 1:
+            user_input = input(f"Enter types of regression you would you like to try: (for example: {S_BOLD}all{E_BOLD} or {S_BOLD}1,2,3{E_BOLD} or {S_BOLD}4{E_BOLD}): ").strip()
+            
+            if user_input.lower() == 'all':
+                return [1, 2, 3, 4]
+            
+            try:
+                choices = []
+                for choice_str in user_input.split(','):
+                    choice = int(choice_str.strip())
+                    if 1 <= choice <= 4:
+                        choices.append(choice)
+                    else:
+                        raise ValueError(f"{S_RED}Invalid input{E_RED}: Invalid choice: {choice}")
+                
+                if choices:
+                    return list(set(choices))
+                else:
+                    raise ValueError(f"{S_RED}Invalid input{E_RED}: No valid choices!")
+                    
+            except ValueError:
+                print(f"{S_RED}Invalid input{E_RED}: Please enter numbers 1-4 separated by commas or '{S_BOLD}all{E_BOLD}'")
+                print(f"Example: {S_BOLD}1,2,3{E_BOLD} or {S_BOLD}all{E_BOLD}")
+
+    def get_function_types(self):
+        """Get function types selection from user."""
+
+        print("\n==== Types of function fit ====")
+        print("1. Linear (y = a + b*x)")                                 # Polynomial of degree 1.
+        print("2. Quadratic (y = a + b*x + c*x^2)")                      # Polynomial of degree 2.
+        print("3. Cubic (y = a + b*x + c*x^2 + d*x^3)")                  # Polynomial of degree 3.
+        print("4. Quartic (y = a + b*x + c*x^2 + d*x^3 + e*x^4)")        # Polynomial of degree 4.
+        print("5. Quintic (y = a + b*x + c*x^2 + ... + e*x^4 + f*x^5)")  # Polynomial of degree 5.
+        print("6. Sextic (y = a + b*x + c*x^2 + ... + f*x^5 + g*x^6)")   # Polynomial of degree 6.
+        print("7. Septic (y = a + b*x + ... + h*x^7)")                   # Polynomial of degree 7.
+        print("8. Log-Linear (y = a + b*log(x))")                        # Interest rate curves.
+        print("9. Log-Polynomial (y = a + b*log(x) + c*log(x)^2)")       # Volatility smile.
+        print("10. Semi-Log (log(y) = a + b*x)")                          # Exponential growth.
+        print("11. Square Root (y = a + b*sqrt(x))")                     # VIX, volatility √time.
+        print("12. Inverse (y = a + b/x)")                               # Mean reversion speed.
+        print("13. Log-Sqrt (y = a + b*log(x) + c*sqrt(x))")             # Complex volatility.
+        print("14. Mixed (y = a + b*x + c*log(x))")                      # Yield curves.
+        print("15. Poly-Log (y = a + b*x + c*x^2 + d*log(x))")           # Nelson-Siegel like.
+        print("16. Volatility Mix (y = a + b*sqrt(x) + c/x)")            # GARCH approximation.
+        print("===============================\n")
+
+        while 1:
+            user_input = input(f"Enter types of functions you would you like to fit: (for example: {S_BOLD}all{E_BOLD} or {S_BOLD}1,2,3{E_BOLD} or {S_BOLD}9{E_BOLD}): ").strip()
+            
+            if user_input.lower() == 'all':
+                return list(range(1, 17))  # 1-16
+            
+            try:
+                choices = []
+                for choice_str in user_input.split(','):
+                    choice = int(choice_str.strip())
+                    if 1 <= choice <= 16:
+                        choices.append(choice)
+                    else:
+                        raise ValueError(f"{S_RED}Invalid input{E_RED}: Invalid choice: {choice}")
+                
+                if choices:
+                    return list(set(choices))
+                else:
+                    raise ValueError(f"{S_RED}Invalid input{E_RED}: No valid choices")
+                    
+            except ValueError:
+                print(f"{S_RED}Invalid input{E_RED}: Please enter numbers 1-16 separated by commas or '{S_BOLD}all{E_BOLD}'")
+                print(f"Example: {S_BOLD}1,2,3{E_BOLD} or {S_BOLD}all{E_BOLD}")
+
+class RegressionRun:
+    pass
+
+class VisualizationData:
+    pass
+
+
+def main():
     # Load or create data.
     data_loader = DataLoader()
     X, y = data_loader.get_data()
 
-    print("===== Regression Engines =====")
-    print("1. C++ with ML Pack")
-    print("2. Python with Numpy")
-    print("3. Python with Numba")
-    print("4. Pure Python with for-loops")
-    print(f"{S_BOLD}* Lasso/ElasticNet use sklearn coordinate descent{E_BOLD}")
-    print("===============================")
+    # Print load data format.
+    print_data_loaded(X,y)
 
-    engine_choice = int(input("\nChoose option (1-4): "))
-    # + print napovedu pri spatnem pokusu ze vytiskni opet example co se ma zadat
+    # Get user choices.
+    input_handler = UserInputHandler()
+    
+    engine_choice = input_handler.get_engine_choice()
+    regression_types = input_handler.get_regression_types()
+    function_types = input_handler.get_function_types()
 
-    print("\n===== Types of regression =====\n")
-    print("1. Polynomial regression (use Least Squares)")
-    print("2. Ridge regression (use Least Squares)")
-    print("3. Lasso Regression (use CoordinateDescent)")
-    print("4. Elastic Net Regression (use CoordinateDescent)")
-    print("===============================\n")
+    # Debugging print helper.
+    print_selected_specifications(engine_choice, regression_types, function_types)
 
-    input(f"Enter types of regression you would you like to try: (for example: {S_BOLD}all{E_BOLD} or {S_BOLD}1,2,3{E_BOLD} or {S_BOLD}4{E_BOLD}): ")
-    # + print napovedu pri spatnem pokusu ze vytiskni opet example co se ma zadat
-
-    print("==== Types of function fit ====")
-    print("1. Linear (y = a + b*x)")
-    print("2. Quadratic (y = a + b*x + c*x^2)")
-    print("3. Cubic (y = a + b*x + c*x^2 + d*x^3)")
-    print("4. Quartic (y = a + b*x + c*x^2 + d*x^3 + e*x^4)")
-    print("5. Exponential (y = a * e^(b*x))")
-    print("6. Logarithmic (y = a + b*log(x))")
-    print("7. Power Law (y = a * x^b)")
-    print("8. Sigmoid/Logistic (y = L/(1 + e^(-k*(x-x0))))")
-    print("9. Volatility (y = a + b*sqrt(x))")
-    print("10. Mean Reversion (y = a + b*e^(-c*x) + d)")
-    print("11. GARCH-like (y = a + b*x + c*x^2*e^(-d*x))")
-    print("12. Interest Rate (y = a*(1-e^(-b*x))/x)")
-    print("===============================\n")
-
-    input(f"Enter types of functions you would you like to fit: (for example: {S_BOLD}all{E_BOLD} or {S_BOLD}1,2,3{E_BOLD} or {S_BOLD}9{E_BOLD}): ")
-
-    print(f"\n{S_BOLD}Data loaded:{E_BOLD}")
-    print(f"X shape: {X.shape}")
-    print(f"y shape: {y.shape}")
+if __name__ == "__main__":
+    main()
