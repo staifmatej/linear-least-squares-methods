@@ -59,6 +59,11 @@ class LeastSquares:
                 return cond_number
             cond_number = multivariate_ols_ridge(X)
 
+        elif self.type_regression == "LassoRegression":
+            return self._coordinate_descent_lasso(X, Y)
+
+        elif self.type_regression == "ElasticNetRegression":
+            return self._coordinate_descent_elasticnet(X, Y)
 
         elif self.type_regression == "PolynomialRegression":
             def multivariate_ols_standard(X):
@@ -77,7 +82,7 @@ class LeastSquares:
             print("Recommendation: QR decomposition is probably extremely unstable; for better numerical stability, consider using SVD decomposition, though it may be slower.\n")
 
         if cond_number < 1e15:
-            print(f"Condition number for matrix X*X^T is: {cond_number}\n")
+            print(f"Condition number (in the 2-norm) for matrix X*X^T is: {cond_number}\n")
 
         if cond_number < treshold_for_QR_decomposition:
             w = self.normal_equations(X, Y)
@@ -87,8 +92,10 @@ class LeastSquares:
 
     def normal_equations(self, X, Y):
         """Compute LeastSquares coefficients using normal equations method."""
+
         if self.type_regression == "RidgeRegression":
             def normal_equations_ridge(X):
+                """Compute Ridge regularized X^T X matrix with L2 penalty."""
                 XtX = X.T @ X
                 regularization = self.alpha * np.eye(X.shape[1])
                 regularization[0, 0] = 0
@@ -96,8 +103,10 @@ class LeastSquares:
                 return XtX_ridge
             XtX = normal_equations_ridge(X)
 
+
         else: # type_regression="PolynomialRegression"
             def normal_equations_standard(X, Y):
+                """Compute standard X^T X and X^T Y matrices for OLS."""
                 XtY = X.T @ Y
                 XtX = X.T @ X
                 return XtX, XtY
@@ -111,30 +120,90 @@ class LeastSquares:
 
     def qr_decomposition(self, X, Y):
         """Compute LeastSquares coefficients using QR decomposition method for better numerical stability."""
-        Q, R = np.linalg.qr(X)
-        QtY = Q.T @ Y
+
+        if self.type_regression == "RidgeRegression":
+            def qr_decomposition_ridge(X, Y):
+                """Perform QR decomposition on Ridge-extended system [X; sqrt(α)I]."""
+                n_features = X.shape[1]
+                sqrt_alpha = np.sqrt(self.alpha)
+
+                I_reg = np.eye(n_features)
+                I_reg[0, 0] = 0
+                X_extended = np.vstack([X, sqrt_alpha * I_reg])
+                Y_extended = np.hstack([Y, np.zeros(n_features)])
+
+                Q, R = np.linalg.qr(X_extended)
+                QtY = Q.T @ Y_extended
+                return Q, R, QtY
+            Q, R, QtY = qr_decomposition_ridge(X, Y)
+
+        else: # type_regression="PolynomialRegression"
+            def qr_decomposition_standard(X, Y):
+                """Perform standard QR decomposition on matrix X."""
+                Q, R = np.linalg.qr(X)
+                QtY = Q.T @ Y
+                return Q, R, QtY
+            Q, R, QtY = qr_decomposition_standard(X, Y)
+
         try:
             w = np.linalg.solve(R, QtY)
         except np.linalg.LinAlgError:
             w = np.linalg.pinv(R) @ QtY
         return w
 
-    def qr_decomposition_ridge(self, X, Y):
-        """Ridge QR dekompozice - integrována do LeastSquares."""
-        n_features = X.shape[1]
-        sqrt_alpha = np.sqrt(self.alpha)
 
-        I_reg = np.eye(n_features)
-        I_reg[0, 0] = 0
-        X_extended = np.vstack([X, sqrt_alpha * I_reg])
-        Y_extended = np.hstack([Y, np.zeros(n_features)])
+class CoordinateDescent(LeastSquares):
+    """Coordinate descent algorithms for L1/L2 regularized regression inheriting from LeastSquares."""
 
-        Q, R = np.linalg.qr(X_extended)
-        QtY = Q.T @ Y_extended
-        try:
-            return np.linalg.solve(R, QtY)
-        except np.linalg.LinAlgError:
-            return np.linalg.pinv(R) @ QtY
+    def _coordinate_descent_lasso(self, X, Y):
+        """Lasso coordinate descent implementation using sklearn."""
+        X_features = X[:, 1:]
+        X_centered = X_features - np.mean(X_features, axis=0)
+        y_centered = Y - np.mean(Y)
+        
+        # sklearn coordinate descent
+        coefficients_features, dual_gap, _, n_iter = lasso_path(
+            X_centered, y_centered,
+            alphas=[self.alpha],
+            max_iter=self.max_iter,
+            tol=self.tol,
+            return_n_iter=True
+        )
+        
+        print(f"Lasso via CoordinateDescent: Converged in {n_iter[0]} iterations, dual gap: {dual_gap[0]:.2e}")
+        
+        # Reconstruct intercept: LeastSquares method
+        feature_coeffs = coefficients_features[:, 0]
+        intercept = np.mean(Y) - np.mean(X_features, axis=0) @ feature_coeffs
+        
+        # format: [intercept, features]
+        return np.concatenate([[intercept], feature_coeffs])
+
+    def _coordinate_descent_elasticnet(self, X, Y):
+        """ElasticNet coordinate descent implementation using sklearn."""
+        X_features = X[:, 1:]  # Without intercept column
+        X_centered = X_features - np.mean(X_features, axis=0)
+        y_centered = Y - np.mean(Y)
+        
+        # sklearn elastic net coordinate descent
+        coefficients_features, dual_gap, _, n_iter = enet_path(
+            X_centered, y_centered,
+            l1_ratio=self.l1_ratio,
+            alphas=[self.alpha],
+            max_iter=self.max_iter,
+            tol=self.tol,
+            return_n_iter=True
+        )
+        
+        print(f"ElasticNet via CoordinateDescent: Converged in {n_iter[0]} iterations, dual gap: {dual_gap[0]:.2e}")
+        
+        # Reconstruct intercept (LeastSquares method)
+        feature_coeffs = coefficients_features[:, 0]
+        intercept = np.mean(Y) - np.mean(X_features, axis=0) @ feature_coeffs
+        
+        # Return in LeastSquares format [intercept, features]
+        return np.concatenate([[intercept], feature_coeffs])
+
 
 class PolynomialRegression(LeastSquares):
     """Standard Polynomial regression using LeastSquares"""
@@ -190,142 +259,44 @@ class RidgeRegression(LeastSquares):
         return X_with_intercept @ self.coefficients
 
 
-class LassoRegression(LeastSquares):
-    """Lasso regression using LeastSquares infrastructure + sklearn coordinate descent"""
+class LassoRegression(CoordinateDescent):
+    """Lasso regression using CoordinateDescent infrastructure"""
 
     def __init__(self, alpha=1.0, max_iter=1000, tol=1e-4):
-        super().__init__()
-        self.alpha = alpha  # L1 regularization strength
+        super().__init__(type_regression="LassoRegression", alpha=alpha)
         self.max_iter = max_iter
         self.tol = tol
 
     def fit(self, x, y):
-        # Použij LeastSquares preprocessing - přidej intercept
+        """Fit Lasso regression model."""
         X_with_intercept = np.column_stack([np.ones(len(y)), x])
-
-        # Použij LeastSquares logiku pro data validation a setup
-        self.coefficients = self.multivariate_ols_lasso(X_with_intercept, y)
+        self.coefficients = self.multivariate_ols(X_with_intercept, y)
         return self
 
-    def multivariate_ols_lasso(self, X, y):
-        """Využívá LeastSquares strukturu s Lasso coordinate descent."""
-        # Zkontroluj condition number jako LeastSquares
-        condition_number = np.linalg.cond(X.T @ X)
-        print(f"Lasso: Matrix condition number: {condition_number:.2e}")
-
-        if condition_number > 1e12:
-            print("Lasso: Ill-conditioned matrix detected, regularization will help")
-
-        # Použij coordinate descent pro Lasso
-        return self._coordinate_descent_lasso(X, y)
-
-    def _coordinate_descent_lasso(self, X, y):
-        """Lasso coordinate descent - používá sklearn implementaci."""
-
-        # Oddělej intercept a features (LeastSquares approach)
-        X_features = X[:, 1:]  # Bez intercept sloupce
-
-        # Centruj data (standardní LeastSquares preprocessing)
-        X_centered = X_features - np.mean(X_features, axis=0)
-        y_centered = y - np.mean(y)
-
-        # Použij sklearn coordinate descent
-        coefficients_features, dual_gap, _, n_iter = lasso_path(
-            X_centered, y_centered,
-            alphas=[self.alpha],
-            max_iter=self.max_iter,
-            tol=self.tol,
-            return_n_iter=True
-        )
-
-        print(f"Lasso: Converged in {n_iter[0]} iterations, dual gap: {dual_gap[0]:.2e}")
-
-        # Rekonstruuj intercept (LeastSquares způsob)
-        feature_coeffs = coefficients_features[:, 0]
-        intercept = np.mean(y) - np.mean(X_features, axis=0) @ feature_coeffs
-
-        # Vrať v LeastSquares formatu [intercept, features]
-        return np.concatenate([[intercept], feature_coeffs])
-
     def predict(self, x):
-        """Použij stejnou prediction logiku jako LeastSquares."""
-        if self.coefficients is None:
-            raise ValueError("Model not fitted yet. Call fit() first.")
-
-        # Stejný approach jako LeastSquares
+        """Prediction using Lasso coefficients."""
+        fit_error_handling(self.coefficients)
         X_with_intercept = np.column_stack([np.ones(len(x)), x])
         return X_with_intercept @ self.coefficients
 
 
-class ElasticNetRegression(LeastSquares):
-    """Elastic Net regression using LeastSquares infrastructure + Ridge + Lasso techniques"""
+class ElasticNetRegression(CoordinateDescent):
+    """Elastic Net regression using CoordinateDescent infrastructure"""
 
     def __init__(self, alpha=1.0, l1_ratio=0.5, max_iter=1000, tol=1e-4):
-        super().__init__()
-        self.alpha = alpha  # Overall regularization strength
+        super().__init__(type_regression="ElasticNetRegression", alpha=alpha)
         self.l1_ratio = l1_ratio  # L1 vs L2 mix: 0=Ridge, 1=Lasso, 0.5=Equal mix
         self.max_iter = max_iter
         self.tol = tol
 
     def fit(self, x, y):
-        # Použij LeastSquares preprocessing - stejně jako Ridge/Lasso
+        """Fit ElasticNet regression model."""
         X_with_intercept = np.column_stack([np.ones(len(y)), x])
-
-        # Použij kombinovanou logiku Ridge + Lasso
-        self.coefficients = self.multivariate_ols_elasticnet(X_with_intercept, y)
+        self.coefficients = self.multivariate_ols(X_with_intercept, y)
         return self
 
-    def multivariate_ols_elasticnet(self, X, y):
-        """Využívá LeastSquares + Ridge + Lasso infrastrukturu pro ElasticNet."""
-        # Zkontroluj condition number jako Ridge/Lasso
-        condition_number = np.linalg.cond(X.T @ X)
-        print(f"ElasticNet: Matrix condition number: {condition_number:.2e}")
-
-        # Vypočti L1 a L2 alpha hodnoty
-        alpha_l1 = self.alpha * self.l1_ratio
-        alpha_l2 = self.alpha * (1 - self.l1_ratio)
-
-        print(f"ElasticNet: L1 penalty (α₁): {alpha_l1:.4f}, L2 penalty (α₂): {alpha_l2:.4f}")
-
-        if condition_number > 1e12:
-            print("ElasticNet: Ill-conditioned matrix detected, regularization will help")
-
-        # Použij coordinate descent pro ElasticNet (kombinuje L1+L2)
-        return self._coordinate_descent_elasticnet(X, y, alpha_l1, alpha_l2)
-
-    def _coordinate_descent_elasticnet(self, X, y, alpha_l1, alpha_l2):
-        """ElasticNet coordinate descent - kombinuje Ridge a Lasso techniky."""
-        # Oddělej intercept a features (stejně jako Lasso)
-        X_features = X[:, 1:]  # Bez intercept sloupce
-
-        # Centruj data (LeastSquares preprocessing)
-        X_centered = X_features - np.mean(X_features, axis=0)
-        y_centered = y - np.mean(y)
-
-        # Použij sklearn elastic net coordinate descent
-        coefficients_features, dual_gap, _, n_iter = enet_path(
-            X_centered, y_centered,
-            l1_ratio=self.l1_ratio,
-            alphas=[self.alpha],
-            max_iter=self.max_iter,
-            tol=self.tol,
-            return_n_iter=True
-        )
-
-        print(f"ElasticNet: Converged in {n_iter[0]} iterations, dual gap: {dual_gap[0]:.2e}")
-
-        # Rekonstruuj intercept (LeastSquares způsob - stejně jako Lasso)
-        feature_coeffs = coefficients_features[:, 0]
-        intercept = np.mean(y) - np.mean(X_features, axis=0) @ feature_coeffs
-
-        # Vrať v LeastSquares formatu [intercept, features]
-        return np.concatenate([[intercept], feature_coeffs])
-
     def predict(self, x):
-        """Použij stejnou prediction logiku jako LeastSquares/Ridge/Lasso."""
-        if self.coefficients is None:
-            raise ValueError("Model not fitted yet. Call fit() first.")
-
-        # Identický approach jako LeastSquares
+        """Prediction using ElasticNet coefficients."""
+        fit_error_handling(self.coefficients)
         X_with_intercept = np.column_stack([np.ones(len(x)), x])
         return X_with_intercept @ self.coefficients

@@ -8,9 +8,11 @@ pandas==2.2.3
 matplotlib==3.10.1
 seaborn==0.13.2
 
-# Performance and ML libraries
+# Performance for Python
 numba==0.61.0
-scikit-learn==1.6.1
+
+# ML models library
+scikit-learn==1.6.1 # using only lasso_path and enet_path
 
 # Development and testing
 pytest==8.3.4

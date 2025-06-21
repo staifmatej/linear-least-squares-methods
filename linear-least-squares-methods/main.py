@@ -245,12 +245,14 @@ class DataLoader:
 
     def use_example_dataset(self):
         """Use predefined example dataset."""
-        print("\nExample datasets:")
+        print("\n====== Example datasets =======")
         print("1. House prices (size vs price)")
         print("2. Temperature data (time vs temp)")
         print("3. Quadratic function")
+        print("4. Sinusoidal function")
+        print("===============================\n")
 
-        choice = input("Choose example (1-3): ").strip()
+        choice = input("Choose example (1-4): ").strip()
 
         if choice == "1":
             # House prices example
@@ -264,10 +266,17 @@ class DataLoader:
             y_temperature = 15 + 10 * np.sin(2 * np.pi * x_time / 24) + np.random.normal(0, 1, 25)
             return x_time.reshape(-1, 1), y_temperature
 
-        # Default quadratic (choice == "3")
-        x_quadratic = np.linspace(-3, 3, 20)
-        y_quadratic = 2 * x_quadratic ** 2 + 3 * x_quadratic + 1 + np.random.normal(0, 2, 20)
-        return x_quadratic.reshape(-1, 1), y_quadratic
+        if choice == "3":
+            # Quadratic function
+            x_quadratic = np.linspace(-3, 3, 20)
+            y_quadratic = 2 * x_quadratic ** 2 + 3 * x_quadratic + 1 + np.random.normal(0, 2, 20)
+            return x_quadratic.reshape(-1, 1), y_quadratic
+
+        # Default sinusoidal (choice == "4")
+        np.random.seed(42)
+        x_sin = np.linspace(0, 4 * np.pi, 100)  # 100 points over 4π
+        y_sin = 3 * np.sin(x_sin) + 0.5 * np.sin(3 * x_sin) + np.random.normal(0, 0.3, 100)
+        return x_sin.reshape(-1, 1), y_sin
 
     def get_data(self):
         """Main method to get data based on user choice."""
@@ -288,20 +297,48 @@ class DataLoader:
 if __name__ == "__main__":
     print(f"{S_BOLD}=== Linear Least Squares Methods Demo ==={E_BOLD}")
 
-    # Load data
+    # Load or create data.
     data_loader = DataLoader()
     X, y = data_loader.get_data()
+
+    print("===== Regression Engines =====")
+    print("1. C++ with ML Pack")
+    print("2. Python with Numpy")
+    print("3. Python with Numba")
+    print("4. Pure Python with for-loops")
+    print(f"{S_BOLD}* Lasso/ElasticNet use sklearn coordinate descent{E_BOLD}")
+    print("===============================")
+
+    engine_choice = int(input("\nChoose option (1-4): "))
+    # + print napovedu pri spatnem pokusu ze vytiskni opet example co se ma zadat
+
+    print("\n===== Types of regression =====\n")
+    print("1. Polynomial regression (use Least Squares)")
+    print("2. Ridge regression (use Least Squares)")
+    print("3. Lasso Regression (use CoordinateDescent)")
+    print("4. Elastic Net Regression (use CoordinateDescent)")
+    print("===============================\n")
+
+    input(f"Enter types of regression you would you like to try: (for example: {S_BOLD}all{E_BOLD} or {S_BOLD}1,2,3{E_BOLD} or {S_BOLD}4{E_BOLD}): ")
+    # + print napovedu pri spatnem pokusu ze vytiskni opet example co se ma zadat
+
+    print("==== Types of function fit ====")
+    print("1. Linear (y = a + b*x)")
+    print("2. Quadratic (y = a + b*x + c*x^2)")
+    print("3. Cubic (y = a + b*x + c*x^2 + d*x^3)")
+    print("4. Quartic (y = a + b*x + c*x^2 + d*x^3 + e*x^4)")
+    print("5. Exponential (y = a * e^(b*x))")
+    print("6. Logarithmic (y = a + b*log(x))")
+    print("7. Power Law (y = a * x^b)")
+    print("8. Sigmoid/Logistic (y = L/(1 + e^(-k*(x-x0))))")
+    print("9. Volatility (y = a + b*sqrt(x))")
+    print("10. Mean Reversion (y = a + b*e^(-c*x) + d)")
+    print("11. GARCH-like (y = a + b*x + c*x^2*e^(-d*x))")
+    print("12. Interest Rate (y = a*(1-e^(-b*x))/x)")
+    print("===============================\n")
+
+    input(f"Enter types of functions you would you like to fit: (for example: {S_BOLD}all{E_BOLD} or {S_BOLD}1,2,3{E_BOLD} or {S_BOLD}9{E_BOLD}): ")
 
     print(f"\n{S_BOLD}Data loaded:{E_BOLD}")
     print(f"X shape: {X.shape}")
     print(f"y shape: {y.shape}")
-
-    # Test LeastSquares regression
-    print(f"\n{S_BOLD}=== Testing LeastSquares Regression ==={E_BOLD}")
-    ols = LeastSquares()
-    coefficients = ols.multivariate_ols(X, y)
-    print(f"LeastSquares Coefficients: {coefficients}")
-
-    # Test Polynomial Regression
-    print(f"\n{S_BOLD}=== Testing Polynomial Regression ==={E_BOLD}")
-    poly_degree = int(input("Enter polynomial degree (1-5): ") or "2")
