@@ -7,4 +7,3 @@ def test_dataloader_creation():
     """Test that DataLoader can be created."""
     loader = DataLoader()
     assert loader is not None
-

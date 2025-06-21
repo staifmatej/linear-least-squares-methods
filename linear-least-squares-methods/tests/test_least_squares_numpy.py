@@ -1,16 +1,16 @@
-"""Unit tests for OLS class from least_squares_numpy.py"""
+"""Unit tests for LeastSquares class from least_squares_numpy.py"""
 
 import numpy as np
-from approaches.least_squares_numpy import OLS, PolynomialRegression
+from approaches.least_squares_numpy import LeastSquares, PolynomialRegression
 
 
 # pylint: disable=attribute-defined-outside-init
 class TestOLS:
-    """Test cases for OLS class."""
+    """Test cases for LeastSquares class."""
 
     def setup_method(self):
         """Set up test fixtures before each test method."""
-        self.ols = OLS()
+        self.ols = LeastSquares()
 
         # Create simple test data
         self.X_simple = np.array([[1], [2], [3], [4], [5]])
@@ -21,13 +21,13 @@ class TestOLS:
         self.y_multi = np.array([6, 7, 8, 11, 13])  # y = 1 + 2x1 + 3x2
 
     def test_ols_initialization(self):
-        """Test OLS can be initialized."""
-        ols = OLS()
+        """Test LeastSquares can be initialized."""
+        ols = LeastSquares()
         assert ols is not None
-        assert isinstance(ols, OLS)
+        assert isinstance(ols, LeastSquares)
 
     def test_multivariate_ols_simple_linear(self):
-        """Test OLS with simple linear relationship."""
+        """Test LeastSquares with simple linear relationship."""
         coefficients = self.ols.multivariate_ols(self.X_simple, self.y_simple)
 
         # Should return coefficients [intercept, slope]
@@ -39,7 +39,7 @@ class TestOLS:
         np.testing.assert_allclose(coefficients[1], 2, atol=1e-10)  # slope
 
     def test_multivariate_ols_multivariable(self):
-        """Test OLS with multiple variables."""
+        """Test LeastSquares with multiple variables."""
         coefficients = self.ols.multivariate_ols(self.X_multi, self.y_multi)
 
         # Should return coefficients [intercept, coef1, coef2]

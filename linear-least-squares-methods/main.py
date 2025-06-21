@@ -4,11 +4,13 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-from approaches.least_squares_numpy import OLS, PolynomialRegression
+from approaches.least_squares_numpy import LeastSquares, PolynomialRegression
 
-# Global Constants for bold text.
+# Global constants used for bold text and red warning messages.
 S_BOLD = "\033[1m"
 E_BOLD = "\033[0m"
+S_RED = "\033[91m"
+E_RED = "\033[0m"
 
 class DataLoader:
     """Class for loading data from various sources."""
@@ -294,13 +296,12 @@ if __name__ == "__main__":
     print(f"X shape: {X.shape}")
     print(f"y shape: {y.shape}")
 
-    # Test OLS regression
-    print(f"\n{S_BOLD}=== Testing OLS Regression ==={E_BOLD}")
-    ols = OLS()
+    # Test LeastSquares regression
+    print(f"\n{S_BOLD}=== Testing LeastSquares Regression ==={E_BOLD}")
+    ols = LeastSquares()
     coefficients = ols.multivariate_ols(X, y)
-    print(f"OLS Coefficients: {coefficients}")
+    print(f"LeastSquares Coefficients: {coefficients}")
 
     # Test Polynomial Regression
     print(f"\n{S_BOLD}=== Testing Polynomial Regression ==={E_BOLD}")
     poly_degree = int(input("Enter polynomial degree (1-5): ") or "2")
-
