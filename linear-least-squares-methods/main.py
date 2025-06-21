@@ -2,10 +2,9 @@
 
 import os
 import numpy as np
-#import matplotlib.pyplot as plt
-#import seaborn as sns
+import matplotlib.pyplot as plt
 import pandas as pd
-#from approaches.least_squares_numpy import PolynomialRegression
+from approaches.least_squares_numpy import OLS, PolynomialRegression
 
 # Global Constants for bold text.
 S_BOLD = "\033[1m"
@@ -221,7 +220,7 @@ class DataLoader:
 
         try:
             n_samples = int(input("Number of samples (default 50): ") or "50")
-            degree = int(input("True polynomial degree (default 3): ") or "3")
+            poly_degree_synthetic = int(input("True polynomial degree (default 3): ") or "3")
             noise_level = float(input("Noise level (default 0.1): ") or "0.1")
         except ValueError:
             print("Using default values")
@@ -285,5 +284,23 @@ class DataLoader:
 
 
 if __name__ == "__main__":
+    print(f"{S_BOLD}=== Linear Least Squares Methods Demo ==={E_BOLD}")
+
+    # Load data
     data_loader = DataLoader()
     X, y = data_loader.get_data()
+
+    print(f"\n{S_BOLD}Data loaded:{E_BOLD}")
+    print(f"X shape: {X.shape}")
+    print(f"y shape: {y.shape}")
+
+    # Test OLS regression
+    print(f"\n{S_BOLD}=== Testing OLS Regression ==={E_BOLD}")
+    ols = OLS()
+    coefficients = ols.multivariate_ols(X, y)
+    print(f"OLS Coefficients: {coefficients}")
+
+    # Test Polynomial Regression
+    print(f"\n{S_BOLD}=== Testing Polynomial Regression ==={E_BOLD}")
+    poly_degree = int(input("Enter polynomial degree (1-5): ") or "2")
+

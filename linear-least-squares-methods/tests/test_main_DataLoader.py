@@ -8,6 +8,3 @@ def test_dataloader_creation():
     loader = DataLoader()
     assert loader is not None
 
-def test_basic_functionality():
-    """Basic test."""
-    assert 1 + 1 == 2
