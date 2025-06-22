@@ -15,6 +15,7 @@ This project explores the implementation of the **Least Squares Method** for cur
 - Compare performance between the different implementations.
 - Enable **polynomial regression up to degree 5**.
 - Extend the project to support alternative regression methods:
+  - **Standard Regression**  
   - **Lasso Regression**
   - **Ridge Regression**
   - **Elastic Net Regression**
