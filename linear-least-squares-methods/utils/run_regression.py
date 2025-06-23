@@ -47,9 +47,7 @@ class RegressionRun:
                 try:
                     result = self._run_single_regression(X, y, reg_type, func_type)
                     self.results[(reg_type, func_type)] = result
-                    print(f"SUCCESS: {self.regression_mapping[reg_type]} + Function {func_type}")
                 except (ValueError, RuntimeError, np.linalg.LinAlgError, KeyError) as e:
-                    print(f"FAILED: {self.regression_mapping[reg_type]} + Function {func_type}: {str(e)}")
                     self.results[(reg_type, func_type)] = None
 
         return self.results
@@ -274,24 +272,17 @@ class RegressionRun:
 
     def print_results(self):
         """Print summary of all regression results."""
-        print(f"\n{S_BOLD}=== Regression Results Summary ==={E_BOLD}")
 
         successful = 0
         failed = 0
         not_implemented = 0
 
-        for (reg_type, func_type), result in self.results.items():
-            reg_name = self.regression_mapping[reg_type]
-
+        for result in self.results.items():
             if result is None:
-                print(f"FAILED: {reg_name} + Function {func_type}")
                 failed += 1
             elif result.get('status') == 'not_implemented':
-                print(f"NOT IMPLEMENTED: {reg_name} + Function {func_type}")
                 not_implemented += 1
             else:
-                coeffs = result.get('coefficients', [])
-                print(f"SUCCESS: {reg_name} + Function {func_type}: {len(coeffs)} coefficients")
                 successful += 1
 
         print(f"\n{S_BOLD}Summary:{E_BOLD} {successful} successful, {failed} failed, {not_implemented} not implemented")

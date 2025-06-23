@@ -70,7 +70,7 @@ class LeastSquares:
             print(f"\n! {S_RED}Warning:{E_RED} Matrix X is poorly conditioned {S_RED}!{E_RED}")
             print(f"Condition number: {cond_number:.2e}\n")
         elif cond_number >= 1e15:
-            print(f"\n! {S_RED}Warning:{E_RED} Matrix X is singular or extremely poorly conditioned {S_RED}!{E_RED}")
+            print(f"\n{S_RED}Warning:{E_RED} Matrix X is singular or extremely poorly conditioned")
             print(f"Condition number: {cond_number:.2e}")
             print("Using QR decomposition for better numerical stability.\n")
 
