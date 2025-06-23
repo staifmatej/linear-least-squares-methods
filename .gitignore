@@ -1,4 +1,3 @@
-CLAUDE.md
 # Python cache
 __pycache__/
 *.py[cod]
@@ -27,6 +26,10 @@ wheels/
 # PyInstaller
 *.manifest
 *.spec
+
+# Jupyter Notebook
+anaconda_projects/
+.ipynb_checkpoints/
 
 # Unit test / coverage reports
 htmlcov/
