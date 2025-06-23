@@ -27,6 +27,10 @@ wheels/
 *.manifest
 *.spec
 
+# Jupyter Notebook
+anaconda_projects/
+.ipynb_checkpoints/
+
 # Unit test / coverage reports
 htmlcov/
 .tox/
