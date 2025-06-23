@@ -1,3 +1,7 @@
+``` 
+TODO: PRED UKONCENIM PROJEKTU MUSIM ODEBRAT Z .gitignore CLAUDE CODE SOUBORY, ABY TO BYLO HEZCI
+```
+
 # Linear Least Squares Methods
 
 This project explores the implementation of the **Least Squares Method** for curve fitting using four different approaches:
