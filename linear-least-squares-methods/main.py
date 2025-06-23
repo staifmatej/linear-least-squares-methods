@@ -76,6 +76,7 @@ def main():
     regression_types = input_handler.get_regression_types()
     function_types = input_handler.get_function_types()
 
+    # Print selected specifications
     print_selected_specifications(engine_choice, regression_types, function_types)
 
     # Run regressions
