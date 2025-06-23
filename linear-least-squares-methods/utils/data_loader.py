@@ -10,6 +10,7 @@ E_BOLD = "\033[0m"
 S_RED = "\033[91m"
 E_RED = "\033[0m"
 
+
 class DataLoader:
     """Class for loading data from various sources."""
 
