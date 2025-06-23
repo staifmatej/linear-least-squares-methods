@@ -24,7 +24,7 @@ class LeastSquares:
         self.type_regression = type_regression
         self.alpha = 1.0  # Default alpha for Ridge/Lasso/ElasticNet
         self.l1_ratio = 0.5  # Default l1_ratio for ElasticNet
-        self.max_iter = 1000
+        self.max_iter = 5000
         self.tol = 1e-4
 
         types_of_regression = ["PolynomialRegression", "RidgeRegression", "LassoRegression", "ElasticNetRegression"]
@@ -77,7 +77,8 @@ class LeastSquares:
         if cond_number < threshold_for_QR_decomposition:
             w = self.normal_equations(X, Y)
         else:
-            print(f"Condition number: {cond_number:.2e} - using QR decomposition")
+            # Store but don't automatically print condition number
+            # print(f"Condition number: {cond_number:.2e} - using QR decomposition")
             w = self.qr_decomposition(X, Y)
 
         return w
@@ -153,8 +154,6 @@ class LeastSquares:
                       tol=self.tol, fit_intercept=True)
         lasso.fit(X_features, Y)
 
-        print(f"Lasso via CoordinateDescent: Converged in {lasso.n_iter_} iterations")
-
         # Return coefficients including intercept
         return np.concatenate([[lasso.intercept_], lasso.coef_])
 
@@ -166,8 +165,6 @@ class LeastSquares:
         enet = ElasticNet(alpha=self.alpha, l1_ratio=self.l1_ratio,
                           max_iter=self.max_iter, tol=self.tol, fit_intercept=True)
         enet.fit(X_features, Y)
-
-        print(f"ElasticNet via CoordinateDescent: Converged in {enet.n_iter_} iterations")
 
         # Return coefficients including intercept
         return np.concatenate([[enet.intercept_], enet.coef_])
@@ -338,7 +335,7 @@ class RidgeRegression(LeastSquares):
 class LassoRegression(LeastSquares):
     """Lasso regression using CoordinateDescent infrastructure"""
 
-    def __init__(self, alpha=1.0, max_iter=1000, tol=1e-4):
+    def __init__(self, alpha=1.0, max_iter=5000, tol=1e-4):
         super().__init__(type_regression="LassoRegression")
         self.alpha = alpha
         self.max_iter = max_iter
@@ -382,7 +379,7 @@ class LassoRegression(LeastSquares):
 class ElasticNetRegression(LeastSquares):
     """Elastic Net regression using CoordinateDescent infrastructure"""
 
-    def __init__(self, alpha=1.0, l1_ratio=0.5, max_iter=1000, tol=1e-4):
+    def __init__(self, alpha=1.0, l1_ratio=0.5, max_iter=5000, tol=1e-4):
         super().__init__(type_regression="ElasticNetRegression")
         self.alpha = alpha
         self.l1_ratio = l1_ratio

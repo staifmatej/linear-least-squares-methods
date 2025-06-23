@@ -33,8 +33,35 @@ def print_selected_specifications(engine_choice, regression_types, function_type
     print("===============================\n")
 
 
+def show_results_menu(X, y, results):
+    """Show results menu and handle user choices."""
+    while 1:
+        print("\n===== Would you like to ======")
+        print("1. Visualize results")
+        print("2. Print coefficients")
+        print("3. Print condition numbers of methods")
+        print("4. Exit")
+        print("===============================")
+
+        user_input = input("\nChoose option (1-4): ")
+
+        if user_input == '1':
+            visualizer = VisualizationData(X, y, results)
+            visualizer.plot_results()
+        elif user_input == '2':
+            visualizer = VisualizationData(X, y, results)
+            visualizer.print_coefficients()
+        elif user_input == '3':
+            print("Condition numbers functionality not yet implemented.")
+        elif user_input == '4':
+            break
+        else:
+            print(f"{S_RED}Invalid input{E_RED}: Please enter 1, 2, 3, or 4")
+
+
 def main():
     """Main entry point for the interactive regression testing environment."""
+
     # Load or create data.
     data_loader = DataLoader()
     X, y = data_loader.get_data()
@@ -56,22 +83,8 @@ def main():
     results = regression_runner.run_regressions(X, y)
     regression_runner.print_results()
 
-    # Visualization of results
-    while True:
-        user_input = input(
-            f"\n{S_BOLD}Would you like to:{E_BOLD}\n1. Visualize results\n2. Print coefficients\n3. Exit\nChoose option (1-3): ")
-
-        if user_input == '1':
-            visualizer = VisualizationData(X, y, results)
-            visualizer.plot_results()
-        elif user_input == '2':
-            visualizer = VisualizationData(X, y, results)
-            visualizer.print_coefficients()
-        elif user_input == '3':
-            print("Exiting...")
-            break
-        else:
-            print(f"{S_RED}Invalid input{E_RED}: Please enter 1, 2, or 3")
+    # Show results menu
+    show_results_menu(X, y, results)
 
 
 if __name__ == "__main__":

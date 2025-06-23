@@ -18,11 +18,17 @@ class VisualizationData:
         self.y = y
         self.results = results
 
-    # pylint: disable=too-many-locals,too-many-branches
+    # pylint: disable=too-many-locals,too-many-branches, too-many-statements
     def plot_results(self, selected_results=None):
         """Plot regression results."""
         if selected_results is None:
             selected_results = self.results
+
+        # Check if data is multidimensional
+        if self.X.shape[1] > 1:
+            print(f"{S_RED}Error{E_RED}: Visualization is not supported for multidimensional data!")
+            print(f"Your data has {self.X.shape[1]} features. Visualization only works with 1 feature (2D plots).")
+            return
 
         # Filter successful results
         successful_results = [(k, v) for k, v in selected_results.items()
@@ -35,7 +41,7 @@ class VisualizationData:
         # Create subplot grid
         n_plots = len(successful_results)
         n_cols = min(3, n_plots)
-        n_rows = (n_plots + n_cols - 1) // n_cols
+        n_rows = max(1, (n_plots + n_cols - 1) // n_cols)
 
         _fig, axes = plt.subplots(n_rows, n_cols, figsize=(5 * n_cols, 4 * n_rows))
         if n_plots == 1:
@@ -198,7 +204,6 @@ class VisualizationData:
 
     def print_coefficients(self):
         """Print coefficients for all successful results."""
-        print(f"\n{S_BOLD}=== Regression Coefficients ==={E_BOLD}")
 
         for (reg_type, func_type), result in self.results.items():
             if result is None or result.get('status') == 'not_implemented':

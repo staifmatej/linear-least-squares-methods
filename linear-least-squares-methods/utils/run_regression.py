@@ -47,7 +47,7 @@ class RegressionRun:
                 try:
                     result = self._run_single_regression(X, y, reg_type, func_type)
                     self.results[(reg_type, func_type)] = result
-                except (ValueError, RuntimeError, np.linalg.LinAlgError, KeyError) as e:
+                except (ValueError, RuntimeError, np.linalg.LinAlgError, KeyError):
                     self.results[(reg_type, func_type)] = None
 
         return self.results
@@ -245,7 +245,6 @@ class RegressionRun:
 
     def _run_cpp_regression(self, _X, _y, _regression_type, _function_type):
         """Run regression using C++ implementation."""
-        print("  C++ implementation not yet available")
         return {
             'status': 'not_implemented',
             'engine': 'cpp',
@@ -254,7 +253,6 @@ class RegressionRun:
 
     def _run_numba_regression(self, _X, _y, _regression_type, _function_type):
         """Run regression using Numba implementation."""
-        print("  Numba implementation not yet available")
         return {
             'status': 'not_implemented',
             'engine': 'numba',
@@ -263,7 +261,6 @@ class RegressionRun:
 
     def _run_pure_regression(self, _X, _y, _regression_type, _function_type):
         """Run regression using Pure Python implementation."""
-        print("  Pure Python implementation not yet available")
         return {
             'status': 'not_implemented',
             'engine': 'pure',
@@ -277,7 +274,7 @@ class RegressionRun:
         failed = 0
         not_implemented = 0
 
-        for result in self.results.items():
+        for _, result in self.results.items():
             if result is None:
                 failed += 1
             elif result.get('status') == 'not_implemented':

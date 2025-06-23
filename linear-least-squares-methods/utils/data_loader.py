@@ -123,6 +123,8 @@ class DataLoader:
 
         return csv_files
 
+
+    # pylint: disable=too-many-branches
     def _csv_files_read_data(self, filename):
         """Read and process CSV file data with validation and column selection."""
         data = pd.read_csv(filename)
@@ -149,25 +151,47 @@ class DataLoader:
         print("Columns:", list(data.columns))
 
         # Select target column
-        y_col = input("Enter target column name (y): ").strip()
+        y_col = input("Enter target column name (y-axis): ").strip()
+        data.columns = data.columns.str.strip()
         if y_col not in data.columns:
             print(f"{S_RED}Warning{E_RED}: Column not found!")
-            raise ValueError("Column not found")
-
-        # Select feature columns
-        print("Enter feature column names separated by comma")
-        print("Or press Enter to use all except target column")
-        x_cols_input = input("Feature columns: ").strip()
+        # Select feature columns - limit to single column for 2D visualization
+        print("Enter ONE feature column name for 2D visualization:")
+        print("Available numeric columns:", [col for col in data.columns if col != y_col and data[col].dtype != 'object'])
+        x_cols_input = input("Feature column: (x-axis)").strip()
 
         if x_cols_input:
-            x_cols = [col.strip() for col in x_cols_input.split(',')]
+            x_cols = [x_cols_input.strip()]
         else:
-            x_cols = [col for col in data.columns if col != y_col]
+            # Default to first numeric column
+            numeric_cols = [col for col in data.columns if col != y_col and data[col].dtype != 'object']
+            if numeric_cols:
+                x_cols = [numeric_cols[0]]
+            else:
+                raise ValueError("No numeric columns available for features")
 
-        X_csv = data[x_cols].values
+        # Convert to numeric, handling non-numeric columns
+        X_numeric = []
+        for col in x_cols:
+            if data[col].dtype == 'object':
+                # Try to convert to numeric, skip if not possible
+                try:
+                    data[col] = pd.to_numeric(data[col], errors='coerce')
+                    if data[col].isna().all():
+                        print(f"{S_RED}Warning{E_RED}: Column '{col}' contains no numeric data, skipping...")
+                        continue
+                except (ValueError, TypeError, pd.errors.ParserError):
+                    print(f"{S_RED}Warning{E_RED}: Column '{col}' cannot be converted to numeric, skipping...")
+                    continue
+            X_numeric.append(col)
+
+        if not X_numeric:
+            raise ValueError("No numeric columns found for features")
+
+        X_csv = data[X_numeric].values
         y_csv = data[y_col].values
 
-        print(f"\nSelected {len(x_cols)} features: {x_cols}")
+        print(f"\nSelected {len(X_numeric)} features: {X_numeric}")
         print(f"Target: {y_col}")
 
         return X_csv, y_csv
