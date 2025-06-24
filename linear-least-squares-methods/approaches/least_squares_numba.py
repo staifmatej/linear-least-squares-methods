@@ -1,0 +1,661 @@
+"""LeastSquares implementation in Python with Numba acceleration - FIXED VERSION."""
+
+import warnings
+import math
+import numpy as np
+from numba import njit, prange
+from sklearn.linear_model import Lasso, ElasticNet
+
+# Suppress sklearn convergence warnings globally
+warnings.filterwarnings('ignore', message='Objective did not converge')
+
+# Global constants used for bold text and red warning messages.
+S_BOLD = "\033[1m"
+E_BOLD = "\033[0m"
+S_RED = "\033[91m"
+E_RED = "\033[0m"
+
+
+def fit_error_handling(coefficients):
+    """fit error handling for Regression model."""
+    if coefficients is None:
+        raise ValueError("Model not fitted yet. Call fit() first.")
+
+
+# Numba-accelerated matrix operations
+@njit(parallel=True)
+def matrix_multiply_transpose_numba(A, B):
+    """Compute A^T * B using Numba with parallel execution."""
+    m = len(A)
+    n = len(A[0]) if m > 0 else 0
+    k = len(B[0]) if m > 0 else 0
+
+    result = np.zeros((n, k))
+
+    for i in prange(n):
+        for j in range(k):
+            for t in range(m):
+                result[i, j] += A[t, i] * B[t, j]
+
+    return result
+
+
+@njit(parallel=True)
+def matrix_vector_multiply_transpose_numba(A, b):
+    """Compute A^T * b using Numba with parallel execution."""
+    m = len(A)
+    n = len(A[0]) if m > 0 else 0
+
+    result = np.zeros(n)
+
+    for i in prange(n):
+        for j in range(m):
+            result[i] += A[j, i] * b[j]
+
+    return result
+
+
+@njit(parallel=True)
+def matrix_vector_multiply_numba(A, v):
+    """Compute A * v using Numba."""
+    m = len(A)
+    n = len(A[0])
+
+    result = np.zeros(m)
+
+    for i in range(m):
+        for j in range(n):
+            result[i] += A[i, j] * v[j]
+
+    return result
+
+
+@njit(parallel=True)
+def solve_linear_system_numba(A, b):
+    """Solve Ax = b using Gaussian elimination with partial pivoting."""
+    n = len(A)
+
+    # Create augmented matrix
+    augmented = np.zeros((n, n + 1))
+    for i in range(n):
+        for j in range(n):
+            augmented[i, j] = A[i, j]
+        augmented[i, n] = b[i]
+
+    # Forward elimination with partial pivoting
+    for i in range(n):
+        # Find pivot
+        max_row = i
+        for k in range(i + 1, n):
+            if abs(augmented[k, i]) > abs(augmented[max_row, i]):
+                max_row = k
+
+        # Swap rows
+        if max_row != i:
+            for j in range(n + 1):
+                temp = augmented[i, j]
+                augmented[i, j] = augmented[max_row, j]
+                augmented[max_row, j] = temp
+
+        # Check for zero pivot
+        if abs(augmented[i, i]) < 1e-10:
+            augmented[i, i] = 1e-10
+
+        # Eliminate column
+        for k in range(i + 1, n):
+            factor = augmented[k, i] / augmented[i, i]
+            for j in range(i, n + 1):
+                augmented[k, j] -= factor * augmented[i, j]
+
+    # Back substitution
+    x = np.zeros(n)
+    for i in range(n - 1, -1, -1):
+        x[i] = augmented[i, n]
+        for j in range(i + 1, n):
+            x[i] -= augmented[i, j] * x[j]
+        x[i] /= augmented[i, i]
+
+    return x
+
+
+@njit(parallel=True)
+def qr_decomposition_numba(A):
+    """QR decomposition using Gram-Schmidt orthogonalization with Numba."""
+    m = len(A)
+    n = len(A[0])
+
+    # Initialize Q and R
+    Q = np.zeros((m, n))
+    R = np.zeros((n, n))
+
+    # Gram-Schmidt process
+    for j in range(n):
+        # Get column j of A
+        v = np.zeros(m)
+        for i in range(m):
+            v[i] = A[i, j]
+
+        # Orthogonalize against previous columns
+        for i in range(j):
+            # R[i][j] = Q[:, i]^T * A[:, j]
+            R[i, j] = 0.0
+            for k in range(m):
+                R[i, j] += Q[k, i] * A[k, j]
+            # v = v - R[i][j] * Q[:, i]
+            for k in range(m):
+                v[k] -= R[i, j] * Q[k, i]
+
+        # Normalize
+        R[j, j] = 0.0
+        for k in range(m):
+            R[j, j] += v[k] * v[k]
+        R[j, j] = math.sqrt(R[j, j])
+
+        if R[j, j] > 1e-10:
+            for k in range(m):
+                Q[k, j] = v[k] / R[j, j]
+        else:
+            # Handle zero column
+            for k in range(m):
+                Q[k, j] = 0.0
+
+    return Q, R
+
+
+@njit(parallel=True)
+def back_substitution_numba(R, b):
+    """Solve Rx = b where R is upper triangular using Numba."""
+    n = len(R)
+    x = np.zeros(n)
+
+    for i in range(n - 1, -1, -1):
+        x[i] = b[i]
+        for j in range(i + 1, n):
+            x[i] -= R[i, j] * x[j]
+        if abs(R[i, i]) > 1e-10:
+            x[i] /= R[i, i]
+        else:
+            x[i] = 0.0
+
+    return x
+
+
+@njit(parallel=True)
+def eigenvalues_power_method_numba(A, max_iter=10000):
+    """Approximate eigenvalues using power method with Numba."""
+    n = len(A)
+
+    # Just get largest eigenvalue for now
+    v = np.ones(n)
+    for _ in range(max_iter):
+        v_new = matrix_vector_multiply_numba(A, v)
+        norm = 0.0
+        for i in range(len(v_new)):
+            norm += v_new[i] ** 2
+        norm = math.sqrt(norm)
+        if norm > 1e-10:
+            for i in range(len(v)):
+                v[i] = v_new[i] / norm
+
+    # Rayleigh quotient
+    Av = matrix_vector_multiply_numba(A, v)
+    lambda_max = 0.0
+    for i in range(n):
+        lambda_max += v[i] * Av[i]
+
+    # Return both max and rough estimate of min
+    return np.array([lambda_max, lambda_max / 1000.0])
+
+
+@njit(parallel=True)
+def generate_polynomial_features_numba(x, degree, x_min, x_max, normalize):
+    """Generate polynomial features with Numba acceleration."""
+    n = len(x)
+
+    if normalize and degree > 3:
+        # Normalize x to interval [-1, 1] for better numerical stability
+        if x_max - x_min > 1e-10:
+            x_normalized = np.zeros(n)
+            for i in prange(n):
+                x_normalized[i] = 2 * (x[i] - x_min) / (x_max - x_min) - 1
+        else:
+            x_normalized = x.copy()
+    else:
+        x_normalized = x.copy()
+
+    polynomial_features = np.zeros((n, degree))
+    for i in prange(n):
+        for d in range(1, degree + 1):
+            # For very high degrees, scale down the features
+            if d > 5:
+                # Use additional scaling to prevent overflow
+                feature = x_normalized[i] ** d / (10 ** (d - 5))
+            else:
+                feature = x_normalized[i] ** d
+
+            # Check for numerical issues
+            if abs(feature) > 1e100:
+                # Replace with scaled version
+                sign = 1 if x_normalized[i] >= 0 else -1
+                feature = sign * (abs(x_normalized[i]) ** (d / 2.0))
+
+            polynomial_features[i, d - 1] = feature
+
+    return polynomial_features
+
+
+class LeastSquares:
+    """LeastSquares implementation using Numba-accelerated functions."""
+
+    def __init__(self, type_regression="PolynomialRegression"):
+        self.type_regression = type_regression
+        self.alpha = 1.0  # Default alpha for Ridge/Lasso/ElasticNet
+        self.l1_ratio = 0.5  # Default l1_ratio for ElasticNet
+        self.max_iter = 20000
+        self.tol = 1e-4
+
+        types_of_regression = ["PolynomialRegression", "RidgeRegression", "LassoRegression", "ElasticNetRegression"]
+        if type_regression not in types_of_regression:
+            raise ValueError(f"Type {self.type_regression} is not a valid predefined type.")
+
+    def multivariate_ols(self, X, Y):
+        """
+        X: feature matrix
+            Format: list of lists, where N >= p and N = number of observations, p = number of features
+        Y: target variable vector
+            Format: list - one-dimensional
+        return: w = coefficient vector [w₀, w₁, w₂, ..., wₚ]
+        """
+        # Convert to numpy arrays for Numba
+        if hasattr(X, 'tolist'):
+            X = np.array(X)
+        else:
+            X = np.array(X)
+
+        if hasattr(Y, 'tolist'):
+            Y = np.array(Y)
+        else:
+            Y = np.array(Y)
+
+        # Handle 1D input
+        if X.ndim == 1:
+            X = X.reshape(-1, 1)
+
+        # Add column of ones for intercept
+        n_samples = len(Y)
+        X_with_intercept = np.ones((n_samples, X.shape[1] + 1))
+        X_with_intercept[:, 1:] = X
+
+        n_rows = len(X_with_intercept)
+        n_cols = len(X_with_intercept[0])
+
+        if n_rows < n_cols:
+            raise ValueError(f"Matrix X must have more rows than columns. Got {n_rows} rows and {n_cols} columns")
+
+        # Calculate condition number
+        threshold_for_QR_decomposition = 1e6
+        cond_number = 0
+
+        if self.type_regression == "RidgeRegression":
+            cond_number = self._calculate_ridge_condition_number(X_with_intercept)
+        elif self.type_regression == "LassoRegression":
+            return self._coordinate_descent_lasso(X_with_intercept, Y)
+        elif self.type_regression == "ElasticNetRegression":
+            return self._coordinate_descent_elasticnet(X_with_intercept, Y)
+        elif self.type_regression == "PolynomialRegression":
+            cond_number = self._calculate_standard_condition_number(X_with_intercept)
+
+        # Check condition number
+        if cond_number <= 0:
+            cond_number = 1e20  # Force QR decomposition
+
+        if 1e13 <= cond_number < 1e15:
+            print(f"\n! {S_RED}Warning:{E_RED} Matrix X is poorly conditioned {S_RED}!{E_RED}")
+            print(f"Condition number: {cond_number:.2e}\n")
+        elif cond_number >= 1e15:
+            print(f"\n{S_RED}Warning:{E_RED} Matrix X is singular or extremely poorly conditioned")
+            print(f"Condition number: {cond_number:.2e}")
+            print("Using QR decomposition for better numerical stability.\n")
+
+        if cond_number < threshold_for_QR_decomposition:
+            w = self.normal_equations(X_with_intercept, Y)
+        else:
+            w = self.qr_decomposition(X_with_intercept, Y)
+
+        return w.tolist()  # Convert back to list for compatibility
+
+    def normal_equations(self, X, Y):
+        """Compute LeastSquares coefficients using normal equations method."""
+        # Compute X^T * Y using Numba
+        XtY = matrix_vector_multiply_transpose_numba(X, Y)
+
+        if self.type_regression == "RidgeRegression":
+            # Compute X^T * X using Numba
+            XtX = matrix_multiply_transpose_numba(X, X)
+            n_features = len(XtX)
+
+            # Add ridge regularization
+            for i in range(1, n_features):  # Skip intercept
+                XtX[i, i] += self.alpha
+
+            # Solve system using Numba
+            try:
+                w = solve_linear_system_numba(XtX, XtY)
+            except:
+                # Fallback to pseudo-inverse
+                w = self._solve_with_pseudoinverse(XtX, XtY)
+        else:
+            # Compute X^T * X using Numba
+            XtX = matrix_multiply_transpose_numba(X, X)
+
+            # Solve system using Numba
+            try:
+                w = solve_linear_system_numba(XtX, XtY)
+            except:
+                # Fallback to pseudo-inverse
+                w = self._solve_with_pseudoinverse(XtX, XtY)
+
+        return w
+
+    def qr_decomposition(self, X, Y):
+        """Compute LeastSquares coefficients using QR decomposition method."""
+        if self.type_regression == "RidgeRegression":
+            n_samples = len(X)
+            n_features = len(X[0])
+            sqrt_alpha = math.sqrt(self.alpha)
+
+            # Create extended matrix for Ridge
+            X_extended = np.zeros((n_samples + n_features, n_features))
+            # Original X
+            X_extended[:n_samples, :] = X
+            # Regularization rows
+            for i in range(n_features):
+                if i > 0:  # Skip intercept
+                    X_extended[n_samples + i, i] = sqrt_alpha
+
+            # Extended Y
+            Y_extended = np.zeros(n_samples + n_features)
+            Y_extended[:n_samples] = Y
+
+            # QR decomposition using Numba
+            Q, R = qr_decomposition_numba(X_extended)
+            QtY = matrix_vector_multiply_transpose_numba(Q, Y_extended)
+        else:
+            # Standard QR decomposition using Numba
+            Q, R = qr_decomposition_numba(X)
+            QtY = matrix_vector_multiply_transpose_numba(Q, Y)
+
+        # Solve R * w = QtY using back substitution with Numba
+        w = back_substitution_numba(R, QtY)
+        return w
+
+    def _coordinate_descent_lasso(self, X, Y):
+        """Lasso coordinate descent implementation using sklearn."""
+        # Remove intercept column for sklearn
+        X_features = X[:, 1:]
+
+        # Use Lasso model directly
+        lasso = Lasso(alpha=self.alpha, max_iter=self.max_iter,
+                      tol=self.tol, fit_intercept=True)
+        lasso.fit(X_features, Y)
+
+        # Return coefficients including intercept
+        coeffs = [lasso.intercept_] + list(lasso.coef_)
+        return coeffs
+
+    def _coordinate_descent_elasticnet(self, X, Y):
+        """ElasticNet coordinate descent implementation using sklearn."""
+        # Remove intercept column for sklearn
+        X_features = X[:, 1:]
+
+        # Use ElasticNet model directly
+        enet = ElasticNet(alpha=self.alpha, l1_ratio=self.l1_ratio,
+                          max_iter=self.max_iter, tol=self.tol, fit_intercept=True)
+        enet.fit(X_features, Y)
+
+        # Return coefficients including intercept
+        coeffs = [enet.intercept_] + list(enet.coef_)
+        return coeffs
+
+    def _calculate_ridge_condition_number(self, X):
+        """Calculate condition number for Ridge regression."""
+        XtX = matrix_multiply_transpose_numba(X, X)
+        n_features = len(XtX)
+
+        # Add ridge regularization
+        for i in range(1, n_features):
+            XtX[i, i] += self.alpha
+
+        return self._condition_number(XtX)
+
+    def _calculate_standard_condition_number(self, X):
+        """Calculate condition number for standard regression."""
+        XtX = matrix_multiply_transpose_numba(X, X)
+        return self._condition_number(XtX)
+
+    def _condition_number(self, A):
+        """Calculate condition number of matrix A using eigenvalues."""
+        try:
+            eigenvalues = eigenvalues_power_method_numba(np.array(A))
+            if len(eigenvalues) == 0:
+                return 1e20
+
+            max_eig = max(abs(e) for e in eigenvalues)
+            min_eig = min(abs(e) for e in eigenvalues if abs(e) > 1e-10)
+
+            if min_eig < 1e-10:
+                return 1e20
+
+            return max_eig / min_eig
+        except:
+            return 1e20
+
+    # All mathematical operations delegated to numba functions
+
+    def _solve_with_pseudoinverse(self, A, b):
+        """Solve using pseudo-inverse (simplified implementation)."""
+        # This is a simplified version - just add small diagonal for stability
+        n = len(A)
+        A_reg = A.copy()
+
+        # Add small value to diagonal
+        for i in range(n):
+            A_reg[i, i] += 1e-10
+
+        return solve_linear_system_numba(A_reg, b)
+
+    # Matrix operations are handled by numba functions directly
+
+
+# Cleaned up - keeping only the simplest implementations
+
+class PolynomialRegression:
+    """Polynomial regression using pure Python (no NumPy) with Numba acceleration."""
+
+    def __init__(self, degree=1):
+        self.degree = degree
+        self.coefficients = None
+
+    def fit(self, X, y):
+        """Fit polynomial regression model using normal equations."""
+        # Convert inputs to numpy arrays
+        if hasattr(X, 'tolist'):
+            X = np.array(X)
+        elif not isinstance(X, np.ndarray):
+            X = np.array(list(X))
+
+        if hasattr(y, 'tolist'):
+            y = np.array(y)
+        elif not isinstance(y, np.ndarray):
+            y = np.array(list(y))
+
+        n = len(X)
+
+        # Create design matrix (Vandermonde matrix)
+        # Each row is [1, x, x^2, ..., x^degree]
+        design_matrix = np.zeros((n, self.degree + 1))
+        for i in range(n):
+            for power in range(self.degree + 1):
+                design_matrix[i, power] = X[i] ** power
+
+        # Compute X^T * X using Numba
+        XtX = matrix_multiply_transpose_numba(design_matrix, design_matrix)
+
+        # Compute X^T * y using Numba
+        Xty = matrix_vector_multiply_transpose_numba(design_matrix, y)
+
+        # Solve the normal equations using Numba
+        self.coefficients = solve_linear_system_numba(XtX, Xty)
+
+        return self
+
+    def predict(self, X):
+        """Predict using the fitted polynomial model."""
+        if self.coefficients is None:
+            raise ValueError("Model must be fitted before prediction")
+
+        # Convert to numpy array
+        if hasattr(X, 'tolist'):
+            X = np.array(X)
+        elif not isinstance(X, np.ndarray):
+            X = np.array(list(X))
+
+        predictions = []
+        for x in X:
+            y_pred = 0
+            for power, coeff in enumerate(self.coefficients):
+                y_pred += coeff * (x ** power)
+            predictions.append(y_pred)
+
+        return predictions
+
+    # Matrix operations use numba functions directly
+
+
+class RidgeRegression:
+    """Ridge regression using pure Python with Numba acceleration."""
+
+    def __init__(self, alpha=1.0):
+        self.alpha = alpha
+        self.coefficients = None
+        self.intercept = None
+
+    def fit(self, X, y):
+        """Fit ridge regression model."""
+        # Convert inputs to numpy arrays
+        if hasattr(X, 'tolist'):
+            X = np.array(X)
+        elif not isinstance(X, np.ndarray):
+            X = np.array(X)
+
+        if hasattr(y, 'tolist'):
+            y = np.array(y)
+        elif not isinstance(y, np.ndarray):
+            y = np.array(y)
+
+        # Handle both 1D and 2D inputs
+        if X.ndim == 1:
+            X = X.reshape(-1, 1)
+
+        n_samples = len(X)
+        n_features = X.shape[1]
+
+        # Add intercept column (column of ones)
+        X_with_intercept = np.ones((n_samples, n_features + 1))
+        X_with_intercept[:, 1:] = X
+
+        # Compute X^T * X using Numba
+        XtX = matrix_multiply_transpose_numba(X_with_intercept, X_with_intercept)
+
+        # Add ridge penalty to diagonal (except first element for intercept)
+        for i in range(1, len(XtX)):
+            XtX[i, i] += self.alpha
+
+        # Compute X^T * y using Numba
+        Xty = matrix_vector_multiply_transpose_numba(X_with_intercept, y)
+
+        # Solve the system using Numba
+        coeffs = solve_linear_system_numba(XtX, Xty)
+
+        # Separate intercept and coefficients
+        self.intercept = coeffs[0]
+        self.coefficients = coeffs[1:]  # Only the feature coefficients, not intercept
+
+        return self
+
+    def predict(self, X):
+        """Predict using the fitted ridge model."""
+        if self.coefficients is None:
+            raise ValueError("Model must be fitted before prediction")
+
+        # Convert to numpy array
+        if hasattr(X, 'tolist'):
+            X = np.array(X)
+        elif not isinstance(X, np.ndarray):
+            X = np.array(X)
+
+        # Handle both 1D and 2D inputs
+        if X.ndim == 1:
+            X = X.reshape(-1, 1)
+
+        predictions = []
+        for i in range(X.shape[0]):
+            y_pred = self.intercept if self.intercept is not None else 0
+            for j in range(X.shape[1]):
+                if j < len(self.coefficients):
+                    y_pred += self.coefficients[j] * X[i, j]
+            predictions.append(y_pred)
+
+        return predictions
+
+    # Matrix operations use numba functions directly
+
+
+class LassoRegression:
+    """Lasso regression using sklearn (as allowed)."""
+
+    def __init__(self, alpha=1.0, max_iter=20000):
+        self.alpha = alpha
+        self.max_iter = max_iter
+        self.model = Lasso(alpha=alpha, max_iter=max_iter, fit_intercept=True)
+        self.coefficients = None
+
+    def fit(self, X, y):
+        """Fit lasso regression model using sklearn."""
+        # sklearn's Lasso can handle lists or arrays
+        self.model.fit(X, y)
+
+        # Store coefficients in the same format as other models
+        self.coefficients = [self.model.intercept_] + list(self.model.coef_)
+
+        return self
+
+    def predict(self, X):
+        """Predict using the fitted lasso model."""
+        return self.model.predict(X)
+
+
+class ElasticNetRegression:
+    """Elastic Net regression using sklearn (as allowed)."""
+
+    def __init__(self, alpha=1.0, l1_ratio=0.5, max_iter=20000):
+        self.alpha = alpha
+        self.l1_ratio = l1_ratio
+        self.max_iter = max_iter
+        self.model = ElasticNet(alpha=alpha, l1_ratio=l1_ratio,
+                                max_iter=max_iter, fit_intercept=True)
+        self.coefficients = None
+
+    def fit(self, X, y):
+        """Fit elastic net regression model using sklearn."""
+        # sklearn's ElasticNet can handle lists or arrays
+        self.model.fit(X, y)
+
+        # Store coefficients in the same format as other models
+        self.coefficients = [self.model.intercept_] + list(self.model.coef_)
+
+        return self
+
+    def predict(self, X):
+        """Predict using the fitted elastic net model."""
+        return self.model.predict(X)

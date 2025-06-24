@@ -15,7 +15,7 @@ class UserInputHandler:
     def get_engine_choice(self):
         """Get regression engine choice from user."""
 
-        print("\n===== Regression Engines =====")
+        print("===== Regression Engines =====")
         print("1. C++ with ML Pack")
         print("2. Python with Numpy")
         print("3. Python with Numba")

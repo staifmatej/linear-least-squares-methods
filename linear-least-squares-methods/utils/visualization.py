@@ -18,6 +18,72 @@ class VisualizationData:
         self.y = y
         self.results = results
 
+    def _ensure_numpy_array(self, data):
+        """Convert data to numpy array if it's a list."""
+        if isinstance(data, list):
+            return np.array(data)
+        return data
+
+    def _transform_features_for_prediction_pure(self, X, function_type):
+        """Transform features for prediction according to function type (pure Python version)."""
+        import math
+        
+        X_list = X.flatten().tolist() if hasattr(X, 'flatten') else X
+        min_val = 1e-10
+
+        if function_type == 8:  # Log-Linear
+            X_positive = [max(x, min_val) for x in X_list]
+            X_transformed = [[math.log(x)] for x in X_positive]
+            return X_transformed, None
+
+        if function_type == 9:  # Log-Polynomial
+            X_positive = [max(x, min_val) for x in X_list]
+            X_log = [math.log(x) for x in X_positive]
+            X_transformed = [[log_x, log_x ** 2] for log_x in X_log]
+            return X_transformed, None
+
+        if function_type == 10:  # Semi-Log
+            X_transformed = [[x] for x in X_list]
+            return X_transformed, None
+
+        if function_type == 11:  # Square Root
+            X_positive = [max(x, 0) for x in X_list]
+            X_transformed = [[math.sqrt(x)] for x in X_positive]
+            return X_transformed, None
+
+        if function_type == 12:  # Inverse
+            X_nonzero = []
+            for x in X_list:
+                if abs(x) > min_val:
+                    X_nonzero.append(x)
+                else:
+                    X_nonzero.append(min_val if x >= 0 else -min_val)
+            X_transformed = [[1.0 / x] for x in X_nonzero]
+            return X_transformed, None
+
+        if function_type == 13:  # Log-Sqrt
+            X_positive = [max(x, min_val) for x in X_list]
+            X_transformed = [[math.log(x), math.sqrt(x)] for x in X_positive]
+            return X_transformed, None
+
+        if function_type == 14:  # Mixed
+            X_positive = [max(x, min_val) for x in X_list]
+            X_transformed = [[X_list[i], math.log(X_positive[i])] for i in range(len(X_list))]
+            return X_transformed, None
+
+        if function_type == 15:  # Poly-Log
+            X_positive = [max(x, min_val) for x in X_list]
+            X_transformed = [[X_list[i], X_list[i] ** 2, math.log(X_positive[i])] for i in range(len(X_list))]
+            return X_transformed, None
+
+        if function_type == 16:  # Volatility Mix
+            X_positive = [max(x, min_val) for x in X_list]
+            X_transformed = [[math.sqrt(x), 1.0 / x] for x in X_positive]
+            return X_transformed, None
+
+        raise ValueError(f"Unknown function type: {function_type}")
+
+
     # pylint: disable=too-many-locals,too-many-branches, too-many-statements
     def plot_results(self, selected_results=None):
         """Plot regression results."""
@@ -62,31 +128,86 @@ class VisualizationData:
             model = result['model']
 
             try:
-                # FIXED: Handle predictions correctly for each function type
+                # Detect if model is from pure Python, numba, or sklearn wrapper implementation
+                is_pure_python = hasattr(model, '__module__') and 'pure' in model.__module__
+                is_numba_python = hasattr(model, '__module__') and 'numba' in model.__module__
+                is_sklearn_wrapper = model.__class__.__name__ in ['LassoRegressionSklearn', 'ElasticNetRegressionSklearn']
+
+                # Handle predictions correctly for each function type
                 if func_type >= 8:  # Special functions
                     if result.get('is_transformed', False):
                         # Transform x_smooth same as during fit
-                        X_smooth_transformed, _ = self._transform_features_for_prediction(
-                            x_smooth.reshape(-1, 1), func_type
-                        )
-                        y_pred_smooth = model.predict(X_smooth_transformed)
+                        if is_pure_python:
+                            X_smooth_transformed, _ = self._transform_features_for_prediction_pure(
+                                x_smooth.reshape(-1, 1), func_type
+                            )
+                        elif is_numba_python:
+                            # For numba models, use pure Python transform (same approach)
+                            X_smooth_transformed, _ = self._transform_features_for_prediction_pure(
+                                x_smooth.reshape(-1, 1), func_type
+                            )
+                        elif is_sklearn_wrapper:
+                            # For sklearn wrappers, use the underlying sklearn model directly
+                            X_smooth_transformed, _ = self._transform_features_for_prediction(
+                                x_smooth.reshape(-1, 1), func_type
+                            )
+                        else:
+                            X_smooth_transformed, _ = self._transform_features_for_prediction(
+                                x_smooth.reshape(-1, 1), func_type
+                            )
+                        
+                        if is_sklearn_wrapper:
+                            # Use the underlying sklearn model for prediction
+                            y_pred_smooth = model.model.predict(X_smooth_transformed)
+                        elif is_numba_python or is_pure_python:
+                            # For numba and pure python models, use direct prediction
+                            y_pred_smooth = model.predict(X_smooth_transformed)
+                        else:
+                            y_pred_smooth = model.predict(X_smooth_transformed)
+                        
+                        # Convert to numpy array if it's a list (from pure Python)
+                        y_pred_smooth = self._ensure_numpy_array(y_pred_smooth)
 
                         # For semi-log transformation, we need to exponentiate the result
                         if func_type == 10:
                             y_pred_smooth = np.exp(y_pred_smooth)
                     else:
                         y_pred_smooth = model.predict(x_smooth)
+                        y_pred_smooth = self._ensure_numpy_array(y_pred_smooth)
                 else:
                     # For polynomials
                     if hasattr(model, 'predict') and model.__class__.__name__ == 'PolynomialRegression':
                         y_pred_smooth = model.predict(x_smooth)
+                        y_pred_smooth = self._ensure_numpy_array(y_pred_smooth)
                     else:
                         # For Ridge/Lasso/ElasticNet on polynomials
                         degree = result.get('degree', 1)
-                        X_smooth_poly = self._generate_polynomial_features_for_plot(
-                            x_smooth.reshape(-1, 1), degree, self.X
-                        )
-                        y_pred_smooth = model.predict(X_smooth_poly)
+                        
+                        if is_pure_python or is_numba_python:
+                            # Convert x_smooth to list format for pure Python and numba
+                            x_smooth_list = x_smooth.tolist()
+                            
+                            # Generate polynomial features in list format
+                            X_smooth_poly = []
+                            for x in x_smooth_list:
+                                row = []
+                                for d in range(1, degree + 1):
+                                    row.append(x ** d)
+                                X_smooth_poly.append(row)
+                            
+                            y_pred_smooth = model.predict(X_smooth_poly)
+                            y_pred_smooth = self._ensure_numpy_array(y_pred_smooth)
+                        else:
+                            # Use numpy version
+                            X_smooth_poly = self._generate_polynomial_features_for_plot(
+                                x_smooth.reshape(-1, 1), degree, self.X
+                            )
+                            if is_sklearn_wrapper:
+                                # Use the underlying sklearn model for prediction
+                                y_pred_smooth = model.model.predict(X_smooth_poly)
+                            else:
+                                y_pred_smooth = model.predict(X_smooth_poly)
+                            y_pred_smooth = self._ensure_numpy_array(y_pred_smooth)
 
                 ax.plot(x_smooth, y_pred_smooth, 'r-', label='Fit', linewidth=2)
 

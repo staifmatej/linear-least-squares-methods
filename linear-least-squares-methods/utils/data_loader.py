@@ -158,7 +158,7 @@ class DataLoader:
         # Select feature columns - limit to single column for 2D visualization
         print("Enter ONE feature column name for 2D visualization:")
         print("Available numeric columns:", [col for col in data.columns if col != y_col and data[col].dtype != 'object'])
-        x_cols_input = input("Feature column: (x-axis)").strip()
+        x_cols_input = input("Feature column (x-axis): ").strip()
 
         if x_cols_input:
             x_cols = [x_cols_input.strip()]
@@ -247,8 +247,8 @@ class DataLoader:
                 if n_samples < 2:
                     print(f"{S_RED}Invalid input{E_RED}: Number of samples must be at least 2")
                     continue
-                if n_samples > 1e10:
-                    print(f"{S_RED}Invalid input{E_RED}: Number of samples too large (max. 1e10)")
+                if n_samples > 1e8:
+                    print(f"{S_RED}Invalid input{E_RED}: Number of samples too large (max. 1e8)")
                     continue
                 break
             except ValueError:
@@ -261,7 +261,7 @@ class DataLoader:
                     print(f"{S_RED}Invalid input{E_RED}: Polynomial degree must be at least 1")
                     continue
                 if poly_degree_synthetic > 100:
-                    print(f"{S_RED}Warning{E_RED}: Polynomial degree too extremely high (max. 100)")
+                    print(f"{S_RED}Invalid input{E_RED}: Polynomial degree too extremely high (max. 100)")
                     continue
                 break
             except ValueError:
@@ -290,7 +290,7 @@ class DataLoader:
         y_synthetic_true = sum(coeff * x_synthetic ** i for i, coeff in enumerate(true_coeffs))
         y_synthetic_noisy = y_synthetic_true + noise_level * np.random.randn(n_samples)
 
-        print(f"Generated {n_samples} points with degree {poly_degree_synthetic} polynomial")
+        print(f"\nGenerated {n_samples} points with degree {poly_degree_synthetic} polynomial")
         print(f"True coefficients: {true_coeffs}")
 
         return x_synthetic.reshape(-1, 1), y_synthetic_noisy

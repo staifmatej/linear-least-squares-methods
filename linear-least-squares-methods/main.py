@@ -37,10 +37,12 @@ def show_results_menu(X, y, results):
     """Show results menu and handle user choices."""
     while 1:
         print("\n===== Would you like to ======")
-        print("1. Visualize results")
-        print("2. Print coefficients")
-        print("3. Print condition numbers of methods")
-        print("4. Exit")
+        print("1. Visualize results on one image")
+        print("2. Visualize results per image")
+        print("3. Print coefficients")
+        print("4. Print condition numbers of methods")
+        print("5. Print selected configurations")
+        print("6. Exit")
         print("===============================")
 
         user_input = input("\nChoose option (1-4): ")

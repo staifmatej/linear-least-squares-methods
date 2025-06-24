@@ -10,6 +10,7 @@ seaborn==0.13.2
 
 # Performance for Python
 numba==0.61.0
+tqdm==4.66.5
 
 # ML models library
 scikit-learn==1.6.1 # using only lasso_path and enet_path
