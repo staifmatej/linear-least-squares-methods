@@ -28,7 +28,7 @@ class RegressionRun:
         }
 
         self.regression_mapping = {
-            1: "Polynomial",
+            1: "Linear",
             2: "Ridge",
             3: "Lasso",
             4: "ElasticNet"
@@ -63,6 +63,66 @@ class RegressionRun:
             return self._run_pure_regression(X, y, regression_type, function_type)
 
         raise ValueError(f"Unknown engine choice: {self.engine_choice}")
+
+    def _transform_features_for_function_numpy(self, X, y, function_type):
+        """Transform features for special functions using NumPy."""
+        X_flat = X.flatten() if hasattr(X, 'flatten') else X
+        min_val = 1e-10
+
+        if function_type == 8:  # Log-Linear: y = a + b*log(x)
+            X_positive = np.maximum(X_flat, min_val)
+            X_transformed = np.log(X_positive).reshape(-1, 1)
+            return X_transformed, y
+
+        if function_type == 9:  # Log-Polynomial: y = a + b*log(x) + c*log(x)^2
+            X_positive = np.maximum(X_flat, min_val)
+            X_log = np.log(X_positive)
+            X_transformed = np.column_stack([X_log, X_log ** 2])
+            return X_transformed, y
+
+        if function_type == 10:  # Semi-Log: log(y) = a + b*x
+            y_positive = np.maximum(y, min_val)
+            y_transformed = np.log(y_positive)
+            X_transformed = X_flat.reshape(-1, 1)
+            return X_transformed, y_transformed
+
+        if function_type == 11:  # Square Root: y = a + b*sqrt(x)
+            X_positive = np.maximum(X_flat, 0)
+            X_transformed = np.sqrt(X_positive).reshape(-1, 1)
+            return X_transformed, y
+
+        if function_type == 12:  # Inverse: y = a + b/x
+            X_nonzero = np.where(np.abs(X_flat) > min_val, X_flat, min_val)
+            X_transformed = (1.0 / X_nonzero).reshape(-1, 1)
+            return X_transformed, y
+
+        if function_type == 13:  # Log-Sqrt: y = a + b*log(x) + c*sqrt(x)
+            X_positive = np.maximum(X_flat, min_val)
+            X_log = np.log(X_positive)
+            X_sqrt = np.sqrt(X_positive)
+            X_transformed = np.column_stack([X_log, X_sqrt])
+            return X_transformed, y
+
+        if function_type == 14:  # Mixed: y = a + b*x + c*log(x)
+            X_positive = np.maximum(X_flat, min_val)
+            X_log = np.log(X_positive)
+            X_transformed = np.column_stack([X_flat, X_log])
+            return X_transformed, y
+
+        if function_type == 15:  # Poly-Log: y = a + b*x + c*x^2 + d*log(x)
+            X_positive = np.maximum(X_flat, min_val)
+            X_log = np.log(X_positive)
+            X_transformed = np.column_stack([X_flat, X_flat ** 2, X_log])
+            return X_transformed, y
+
+        if function_type == 16:  # Volatility Mix: y = a + b*sqrt(x) + c/x
+            X_positive = np.maximum(X_flat, min_val)
+            X_sqrt = np.sqrt(X_positive)
+            X_inv = 1.0 / X_positive
+            X_transformed = np.column_stack([X_sqrt, X_inv])
+            return X_transformed, y
+
+        raise ValueError(f"Unknown function type: {function_type}")
 
     # pylint: disable=duplicate-code,too-many-return-statements
     def _transform_features_for_function_pure(self, X, y, function_type):
@@ -132,7 +192,7 @@ class RegressionRun:
     def _get_regression_model(self, regression_type, **kwargs):
         """Return model instance based on regression type."""
         if regression_type == 1:
-            return least_squares_numpy.PolynomialRegression(degree=1, **kwargs)
+            return least_squares_numpy.LinearRegression(degree=1, **kwargs)
         if regression_type == 2:
             return least_squares_numpy.RidgeRegression(alpha=1.0)
         if regression_type == 3:
@@ -147,15 +207,15 @@ class RegressionRun:
             # For polynomial functions
             degree = self.function_degree_mapping[function_type]
 
-            if regression_type == 1:  # Polynomial regression
-                model = least_squares_numpy.PolynomialRegression(degree=degree)
+            if regression_type == 1:  # Linear regression
+                model = least_squares_numpy.LinearRegression(degree=degree)
                 model.fit(X.flatten(), y)
                 coeffs = model.coefficients
                 return {
                     'model': model,
                     'coefficients': coeffs,
                     'degree': degree,
-                    'regression_type': 'Polynomial',
+                    'regression_type': 'Linear',
                     'function_type': function_type
                 }
 
@@ -182,10 +242,10 @@ class RegressionRun:
             }
 
         # For special functions 8-16
-        # FIXED: For polynomial regression on special functions, we don't use polynomial degree
-        if regression_type == 1:  # Polynomial regression
+        # FIXED: For linear regression on special functions, we don't use polynomial degree
+        if regression_type == 1:  # Linear regression
             # For special functions, we just do linear regression on transformed features
-            X_transformed, y_transformed = self._transform_features_for_function(X, y, function_type)
+            X_transformed, y_transformed = self._transform_features_for_function_numpy(X, y, function_type)
 
             # Create a simple linear model on transformed features
             model = least_squares_numpy.RidgeRegression(alpha=0.0)  # alpha=0 means regular least squares
@@ -195,13 +255,13 @@ class RegressionRun:
                 'model': model,
                 'coefficients': model.coefficients,
                 'function_type': function_type,
-                'regression_type': 'Polynomial',
+                'regression_type': 'Linear',
                 'transformation': f'Function {function_type}',
                 'is_transformed': True
             }
 
         # For Ridge, Lasso, ElasticNet on special functions
-        X_transformed, y_transformed = self._transform_features_for_function(X, y, function_type)
+        X_transformed, y_transformed = self._transform_features_for_function_numpy(X, y, function_type)
 
         # Get model based on regression type
         model = self._get_regression_model(regression_type)
@@ -258,8 +318,8 @@ class RegressionRun:
             # For polynomial functions
             degree = self.function_degree_mapping[function_type]
 
-            if regression_type == 1:  # Polynomial regression
-                model = least_squares_numba.PolynomialRegression(degree=degree)
+            if regression_type == 1:  # Linear regression
+                model = least_squares_numba.LinearRegression(degree=degree)
                 X_flat = X.flatten() if hasattr(X, 'flatten') else [item for sublist in X for item in
                                                                     sublist] if isinstance(X[0], list) else X
                 model.fit(X_flat, y)
@@ -316,8 +376,8 @@ class RegressionRun:
             try:
                 X_transformed, y_transformed = self._transform_features_for_function_pure(X, y, function_type)
 
-                if regression_type == 1:  # Polynomial regression
-                    model = least_squares_numba.PolynomialRegression(degree=1)
+                if regression_type == 1:  # Linear regression
+                    model = least_squares_numba.LinearRegression(degree=1)
                     X_flat = [x[0] for x in X_transformed]
                     model.fit(X_flat, y_transformed)
                     coeffs = model.coefficients
@@ -388,8 +448,8 @@ class RegressionRun:
             # For polynomial functions
             degree = self.function_degree_mapping[function_type]
 
-            if regression_type == 1:  # Polynomial regression
-                model = least_squares_pure.PolynomialRegression(degree=degree)
+            if regression_type == 1:  # Linear regression
+                model = least_squares_pure.LinearRegression(degree=degree)
                 X_flat = X.flatten() if hasattr(X, 'flatten') else [item for sublist in X for item in
                                                                     sublist] if isinstance(X[0], list) else X
                 model.fit(X_flat, y)
@@ -398,7 +458,7 @@ class RegressionRun:
                     'model': model,
                     'coefficients': coeffs,
                     'degree': degree,
-                    'regression_type': 'Polynomial',
+                    'regression_type': 'Linear',
                     'function_type': function_type
                 }
 
@@ -425,7 +485,7 @@ class RegressionRun:
             }
 
         # For special functions 8-16
-        if regression_type == 1:  # Polynomial regression
+        if regression_type == 1:  # Linear regression
             # For special functions, we just do linear regression on transformed features
             X_transformed, y_transformed = self._transform_features_for_function_pure(X, y, function_type)
             model = least_squares_pure.RidgeRegression(alpha=0.0)  # Regular least squares
@@ -435,7 +495,7 @@ class RegressionRun:
                 'model': model,
                 'coefficients': model.coefficients,
                 'function_type': function_type,
-                'regression_type': 'Polynomial',
+                'regression_type': 'Linear',
                 'transformation': f'Function {function_type}',
                 'is_transformed': True
             }
@@ -521,4 +581,4 @@ class RegressionRun:
             else:
                 successful += 1
 
-        print(f"\n{S_BOLD}Summary:{E_BOLD} {successful} successful, {failed} failed, {not_implemented} not implemented")
+        print(f"{S_BOLD}Summary:{E_BOLD} {successful} successful, {failed} failed, {not_implemented} not implemented")

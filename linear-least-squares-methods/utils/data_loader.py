@@ -19,13 +19,13 @@ class DataLoader:
 
     def show_menu(self):
         """Show data input options menu."""
-        print("\n===== Data Input Options =====")
+        print("\n═════ Data Input Options ═════")
         print("1. Manual input (2D points)")
         print("2. Manual input (multidimensional)")
         print("3. Load from CSV file")
         print("4. Generate synthetic data")
         print("5. Use example dataset")
-        print("===============================")
+        print("════════════════════════════════")
 
         while 1:
             try:
@@ -199,13 +199,13 @@ class DataLoader:
     def _csv_files_not_found(self, filename, csv_files):
         """Display CSV file selection menu and get user choice."""
         if len(csv_files) == 1:
-            print("==== Found CSV file option ====")
+            print("════ Found CSV file option ═════")
         else:
-            print("=== Found CSV files options ===")
+            print("═══ Found CSV files options ════")
         print(f"Found {len(csv_files)} CSV files:")
         for i, file in enumerate(csv_files, 1):
             print(f"{i}. {file}")
-        print("===============================")
+        print("════════════════════════════════")
 
         try:
             choice = int(input("\nChoose file number or 0 for custom path: "))
@@ -297,13 +297,12 @@ class DataLoader:
 
     def use_example_dataset(self):
         """Use predefined example dataset."""
-        print("\n====== Example datasets =======")
+        print("\n═══════ Example datasets ═══════")
         print("1. House prices (size vs price)")
         print("2. Temperature data (time vs temp)")
         print("3. Quadratic function")
         print("4. Sinusoidal function")
-        print("===============================\n")
-
+        print("════════════════════════════════\n")
         while 1:
             try:
                 choice = int(input("Choose example (1-4): "))

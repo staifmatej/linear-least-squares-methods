@@ -23,14 +23,15 @@ def fit_error_handling(coefficients):
 class LeastSquares:
     """LeastSquares implementation using pure Python."""
 
-    def __init__(self, type_regression="PolynomialRegression"):
+    def __init__(self, type_regression="LinearRegression"):
         self.type_regression = type_regression
         self.alpha = 1.0  # Default alpha for Ridge/Lasso/ElasticNet
         self.l1_ratio = 0.5  # Default l1_ratio for ElasticNet
         self.max_iter = 20000
         self.tol = 1e-4
+        self.condition_number = None  # Store condition number for printing
 
-        types_of_regression = ["PolynomialRegression", "RidgeRegression", "LassoRegression", "ElasticNetRegression"]
+        types_of_regression = ["LinearRegression", "RidgeRegression", "LassoRegression", "ElasticNetRegression"]
         if type_regression not in types_of_regression:
             raise ValueError(f"Type {self.type_regression} is not a valid predefined type.")
 
@@ -71,12 +72,16 @@ class LeastSquares:
 
         if self.type_regression == "RidgeRegression":
             cond_number = self._calculate_ridge_condition_number(X_with_intercept)
+            self.condition_number = cond_number
         elif self.type_regression == "LassoRegression":
+            self.condition_number = None  # Lasso doesn't use direct condition number calculation
             return self._coordinate_descent_lasso(X_with_intercept, Y)
         elif self.type_regression == "ElasticNetRegression":
+            self.condition_number = None  # ElasticNet doesn't use direct condition number calculation
             return self._coordinate_descent_elasticnet(X_with_intercept, Y)
-        elif self.type_regression == "PolynomialRegression":
+        elif self.type_regression == "LinearRegression":
             cond_number = self._calculate_standard_condition_number(X_with_intercept)
+            self.condition_number = cond_number
 
         # Check condition number
         if cond_number <= 0:
@@ -399,11 +404,11 @@ class LeastSquares:
         return x
 
 
-class PolynomialRegression(LeastSquares):
+class LinearRegression(LeastSquares):
     """Standard Polynomial regression using LeastSquares - FIXED VERSION"""
 
-    def __init__(self, degree, type_regression="PolynomialRegression", normalize=True):
-        super().__init__(type_regression="PolynomialRegression")
+    def __init__(self, degree, type_regression="LinearRegression", normalize=True):
+        super().__init__(type_regression="LinearRegression")
         self.degree = degree
         self.coefficients = None
         self.normalize = normalize
@@ -438,7 +443,7 @@ class PolynomialRegression(LeastSquares):
         self.coefficients = self.multivariate_ols(X_polynomial, y)
 
         # Reset to original type
-        self.type_regression = "PolynomialRegression"
+        self.type_regression = "LinearRegression"
 
         return self
 
@@ -659,11 +664,11 @@ class ElasticNetRegression(LeastSquares):
         return predictions
 
 
-class PolynomialRegression(LeastSquares):
+class LinearRegression(LeastSquares):
     """Standard Polynomial regression using LeastSquares - FIXED VERSION"""
 
-    def __init__(self, degree, type_regression="PolynomialRegression", normalize=True):
-        super().__init__(type_regression="PolynomialRegression")
+    def __init__(self, degree, type_regression="LinearRegression", normalize=True):
+        super().__init__(type_regression="LinearRegression")
         self.degree = degree
         self.coefficients = None
         self.normalize = normalize
@@ -698,7 +703,7 @@ class PolynomialRegression(LeastSquares):
         self.coefficients = self.multivariate_ols(X_polynomial, y)
 
         # Reset to original type
-        self.type_regression = "PolynomialRegression"
+        self.type_regression = "LinearRegression"
 
         return self
 
@@ -919,7 +924,7 @@ class ElasticNetRegression(LeastSquares):
         return predictions
 
 
-class PolynomialRegression:
+class LinearRegression:
     """Polynomial regression using pure Python (no NumPy)."""
 
     def __init__(self, degree=1):

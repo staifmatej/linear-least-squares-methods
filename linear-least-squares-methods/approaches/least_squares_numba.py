@@ -247,14 +247,15 @@ def generate_polynomial_features_numba(x, degree, x_min, x_max, normalize):
 class LeastSquares:
     """LeastSquares implementation using Numba-accelerated functions."""
 
-    def __init__(self, type_regression="PolynomialRegression"):
+    def __init__(self, type_regression="LinearRegression"):
         self.type_regression = type_regression
         self.alpha = 1.0  # Default alpha for Ridge/Lasso/ElasticNet
         self.l1_ratio = 0.5  # Default l1_ratio for ElasticNet
         self.max_iter = 20000
         self.tol = 1e-4
+        self.condition_number = None  # Store condition number for printing
 
-        types_of_regression = ["PolynomialRegression", "RidgeRegression", "LassoRegression", "ElasticNetRegression"]
+        types_of_regression = ["LinearRegression", "RidgeRegression", "LassoRegression", "ElasticNetRegression"]
         if type_regression not in types_of_regression:
             raise ValueError(f"Type {self.type_regression} is not a valid predefined type.")
 
@@ -298,12 +299,16 @@ class LeastSquares:
 
         if self.type_regression == "RidgeRegression":
             cond_number = self._calculate_ridge_condition_number(X_with_intercept)
+            self.condition_number = cond_number
         elif self.type_regression == "LassoRegression":
+            self.condition_number = None  # Lasso doesn't use direct condition number calculation
             return self._coordinate_descent_lasso(X_with_intercept, Y)
         elif self.type_regression == "ElasticNetRegression":
+            self.condition_number = None  # ElasticNet doesn't use direct condition number calculation
             return self._coordinate_descent_elasticnet(X_with_intercept, Y)
-        elif self.type_regression == "PolynomialRegression":
+        elif self.type_regression == "LinearRegression":
             cond_number = self._calculate_standard_condition_number(X_with_intercept)
+            self.condition_number = cond_number
 
         # Check condition number
         if cond_number <= 0:
@@ -469,7 +474,7 @@ class LeastSquares:
 
 # Cleaned up - keeping only the simplest implementations
 
-class PolynomialRegression:
+class LinearRegression:
     """Polynomial regression using pure Python (no NumPy) with Numba acceleration."""
 
     def __init__(self, degree=1):

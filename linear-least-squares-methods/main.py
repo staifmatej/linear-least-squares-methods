@@ -1,6 +1,17 @@
-"""Main script for testing polynomial regression implementations - FIXED VERSION."""
+"""Main script for testing linear regression implementations - FIXED VERSION."""
 
-from utils import DataLoader, RegressionRun, VisualizationData, UserInputHandler
+
+from utils import (
+    DataLoader,
+    RegressionRun,
+    VisualizationData,
+    UserInputHandler,
+    print_data_loaded,
+    print_selected_specifications,
+    print_selected_configurations,
+    print_condition_numbers,
+    print_coefficients
+)
 
 # Global constants used for bold text and red warning messages.
 S_BOLD = "\033[1m"
@@ -9,56 +20,37 @@ S_RED = "\033[91m"
 E_RED = "\033[0m"
 
 
-def print_data_loaded(X, y):
-    """Print loaded data dimensions."""
-    print("\n========= Data loaded =========")
-    print(f"X shape: {X.shape}")
-    print(f"y shape: {y.shape}")
-    print("===============================\n")
-
-
-def print_selected_specifications(engine_choice, regression_types, function_types):
-    """Print selected configuration summary."""
-    engine_mapping = {
-        1: "approaches/least_squares_cpp.cpp",
-        2: "approaches/least_squares_numpy.py",
-        3: "approaches/least_squares_numba.py",
-        4: "approaches/least_squares_pure.py"
-    }
-
-    print("\n==== Selected Configuration ===")
-    print(f"Engine: {engine_mapping.get(engine_choice)}")
-    print(f"Regression types: {regression_types}")
-    print(f"Function types: {function_types}")
-    print("===============================\n")
-
-
-def show_results_menu(X, y, results):
+def show_results_menu(X, y, results, engine_choice, regression_types, function_types):
     """Show results menu and handle user choices."""
     while 1:
-        print("\n===== Would you like to ======")
+        print("\n══════ Would you like to ══════")
         print("1. Visualize results on one image")
         print("2. Visualize results per image")
         print("3. Print coefficients")
         print("4. Print condition numbers of methods")
         print("5. Print selected configurations")
         print("6. Exit")
-        print("===============================")
+        print("═══════════════════════════════\n")
 
-        user_input = input("\nChoose option (1-4): ")
+        user_input = input("Choose option (1-6): ")
 
         if user_input == '1':
             visualizer = VisualizationData(X, y, results)
             visualizer.plot_results()
         elif user_input == '2':
+            # Visualize results per image (individual plots)
             visualizer = VisualizationData(X, y, results)
-            visualizer.print_coefficients()
+            visualizer.plot_results_individually()
         elif user_input == '3':
-            print("Condition numbers functionality not yet implemented.")
+            print_coefficients(results, regression_types, function_types)
         elif user_input == '4':
+            print_condition_numbers(results, regression_types, function_types)
+        elif user_input == '5':
+            print_selected_configurations(engine_choice, regression_types, function_types)
+        elif user_input == '6':
             break
         else:
-            print(f"{S_RED}Invalid input{E_RED}: Please enter 1, 2, 3, or 4")
+            print(f"{S_RED}Invalid input{E_RED}: Please enter 1, 2, 3, 4, 5, or 6")
 
 
 def main():
@@ -87,7 +79,7 @@ def main():
     regression_runner.print_results()
 
     # Show results menu
-    show_results_menu(X, y, results)
+    show_results_menu(X, y, results, engine_choice, regression_types, function_types)
 
 
 if __name__ == "__main__":

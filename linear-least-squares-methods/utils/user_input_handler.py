@@ -15,13 +15,13 @@ class UserInputHandler:
     def get_engine_choice(self):
         """Get regression engine choice from user."""
 
-        print("===== Regression Engines =====")
+        print("══════ Regression Engines ══════")
         print("1. C++ with ML Pack")
         print("2. Python with Numpy")
         print("3. Python with Numba")
         print("4. Pure Python with for-loops")
         print(f"{S_BOLD}* Lasso/ElasticNet use sklearn coordinate descent{E_BOLD}")
-        print("===============================")
+        print("════════════════════════════════")
 
         while 1:
             try:
@@ -35,12 +35,12 @@ class UserInputHandler:
     def get_regression_types(self):
         """Get regression types selection from user."""
 
-        print("\n===== Types of regression =====")
-        print("1. Polynomial regression (Least Squares)")
+        print("\n═════ Types of regression ══════")
+        print("1. Linear regression (Least Squares)")
         print("2. Ridge regression (Least Squares)")
         print("3. Lasso Regression (CoordinateDescent)")
         print("4. Elastic Net Regression (CoordinateDescent)")
-        print("===============================\n")
+        print("════════════════════════════════\n")
 
         while 1:
             user_input = input(
@@ -71,7 +71,7 @@ class UserInputHandler:
     def get_function_types(self):
         """Get function types selection from user."""
 
-        print("\n==== Types of function fit ====")
+        print("\n════ Types of function fit ════")
         print("1. Linear (y = a + b*x)")  # Polynomial of degree 1.
         print("2. Quadratic (y = a + b*x + c*x^2)")  # Polynomial of degree 2.
         print("3. Cubic (y = a + b*x + c*x^2 + d*x^3)")  # Polynomial of degree 3.
@@ -88,7 +88,8 @@ class UserInputHandler:
         print("14. Mixed (y = a + b*x + c*log(x))")  # Yield curves.
         print("15. Poly-Log (y = a + b*x + c*x^2 + d*log(x))")  # Nelson-Siegel like.
         print("16. Volatility Mix (y = a + b*sqrt(x) + c/x)")  # GARCH approximation.
-        print("===============================\n")
+        print("════════════════════════════════\n")
+
 
         while 1:
             user_input = input(
