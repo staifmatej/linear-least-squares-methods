@@ -29,10 +29,11 @@ def show_results_menu(X, y, results, engine_choice, regression_types, function_t
         print("3. Print coefficients")
         print("4. Print condition numbers of methods")
         print("5. Print selected configurations")
-        print("6. Exit")
+        print("6. Performance benchmark (timer engines)")
+        print("7. Exit")
         print("═══════════════════════════════\n")
 
-        user_input = input("Choose option (1-6): ")
+        user_input = input("Choose option (1-7): ")
 
         if user_input == '1':
             visualizer = VisualizationData(X, y, results)
@@ -48,9 +49,12 @@ def show_results_menu(X, y, results, engine_choice, regression_types, function_t
         elif user_input == '5':
             print_selected_configurations(engine_choice, regression_types, function_types)
         elif user_input == '6':
+            from utils.timer_regression_engines import run_performance_benchmark
+            run_performance_benchmark(X, y, regression_types, function_types)
+        elif user_input == '7':
             break
         else:
-            print(f"{S_RED}Invalid input{E_RED}: Please enter 1, 2, 3, 4, 5, or 6")
+            print(f"{S_RED}Invalid input{E_RED}: Please enter 1, 2, 3, 4, 5, 6, or 7")
 
 
 def main():

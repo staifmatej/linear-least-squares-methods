@@ -153,12 +153,19 @@ def print_condition_numbers(results, regression_types, function_types):
     for reg_type in regression_types:
         for func_type in function_types:
             result = results.get((reg_type, func_type))
-            if result is not None:
+            if result is not None and result.get('status') not in ['not_implemented', 'failed', 'not_available']:
+                # Check both model.condition_number and direct condition_number key
+                condition_num = None
                 model = result.get('model')
                 if model and hasattr(model, 'condition_number') and model.condition_number is not None:
+                    condition_num = model.condition_number
+                elif result.get('condition_number') is not None:
+                    condition_num = result.get('condition_number')
+                
+                if condition_num is not None:
                     reg_name = regression_mapping[reg_type]
                     func_name = function_mapping[func_type]
-                    cond_num = model.condition_number
+                    cond_num = condition_num
 
                     # Color coding based on condition number
                     if cond_num >= 1e15:
@@ -203,7 +210,7 @@ def print_coefficients(results, regression_types, function_types):
     
     print("\n═══ REGRESSION COEFFICIENTS ═══")
     
-    regression_names = {1: "Linear Regression", 2: "Ridge Regression", 3: "Lasso Regression", 4: "ElasticNet Regression"}
+    regression_names = {1: "Linear", 2: "Ridge", 3: "Lasso", 4: "ElasticNet"}
     function_names = {
         1: "Linear", 2: "Quadratic", 3: "Cubic", 4: "Quartic",
         5: "Quintic", 6: "Sextic", 7: "Septic",
@@ -216,7 +223,11 @@ def print_coefficients(results, regression_types, function_types):
     for reg_type in regression_types:
         for func_type in function_types:
             result = results.get((reg_type, func_type))
-            if result is None or result.get('status') == 'not_implemented':
+            if result is None:
+                continue
+            
+            # Handle different result formats    
+            if result.get('status') in ['not_implemented', 'failed', 'not_available']:
                 continue
                 
             coeffs = result.get('coefficients', [])
@@ -230,12 +241,16 @@ def print_coefficients(results, regression_types, function_types):
             print(f"{S_BOLD}{model_name}:{E_BOLD}")
             
             # Intercept
-            print(f"   Intercept:   {coeffs[0]:.6f}")
+            print(f"   Intercept:      {coeffs[0]:.6f}")
             
             # Coefficients
             for i, coeff in enumerate(coeffs[1:], 1):
-                coeff_name = f"β_{i}" if i <= 3 else f"Coefficient {i}"
-                print(f"   {coeff_name}:         {coeff:.6f}")
+                if i <= 3:
+                    coeff_name = f"β_{i}"
+                    print(f"   {coeff_name}:            {coeff:.6f}")
+                else:
+                    coeff_name = f"Coefficient {i}"
+                    print(f"   {coeff_name}:  {coeff:.6f}")
     
     if not found_any:
         print(f"\nNo coefficients available to display.")

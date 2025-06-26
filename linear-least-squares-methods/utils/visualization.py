@@ -10,11 +10,7 @@ sns.set_context("notebook", font_scale=1.2)
 
 # Custom color palettes for different themes
 COLOR_THEMES = {
-    'modern': ['#2E86AB', '#A23B72', '#F18F01', '#C73E1D'],
-    'pastel': ['#FFB3BA', '#FFDFBA', '#FFFFBA', '#BAFFC9', '#BAE1FF'],
-    'ocean': ['#003f5c', '#2f4b7c', '#665191', '#a05195', '#d45087'],
-    'sunset': ['#f7931e', '#ff6b35', '#c5299b', '#6a4c93', '#1e88e5'],
-    'forest': ['#2d5016', '#61a534', '#a2c579', '#d4e4aa', '#f4f4f4']
+    'modern': ['#2E86AB', '#A23B72', '#F18F01', '#C73E1D']
 }
 
 # Global constants used for bold text and red warning messages.
@@ -122,17 +118,10 @@ class VisualizationData:
         n_cols = min(3, n_plots)
         n_rows = max(1, (n_plots + n_cols - 1) // n_cols)
 
-        # Create figure with enhanced modern style
         plt.style.use('seaborn-v0_8-whitegrid')
         fig = plt.figure(figsize=(7 * n_cols, 6 * n_rows), facecolor='white')
-        
-        # Choose color theme based on number of plots
-        if n_plots <= 4:
-            theme_colors = COLOR_THEMES['modern']
-        elif n_plots <= 8:
-            theme_colors = COLOR_THEMES['ocean']
-        else:
-            theme_colors = COLOR_THEMES['sunset']
+
+        theme_colors = COLOR_THEMES['modern']
         
         # Enhanced color scheme for different regression types
         scatter_color = '#3498db'  # Bright blue for data points - better visibility
@@ -168,7 +157,18 @@ class VisualizationData:
                                c=scatter_color, edgecolors='white', linewidth=1.5,
                                label='Data Points', zorder=5)
 
-            # Get predictions
+            # Get predictions - handle different result formats
+            if 'model' not in result:
+                # C++ engine returns status instead of model when not available
+                if result.get('status') == 'not_available':
+                    ax.text(0.5, 0.5, 'C++ Engine Not Available\nUsing NumPy Fallback', 
+                           transform=ax.transAxes, ha='center', va='center',
+                           fontsize=12, bbox=dict(boxstyle="round,pad=0.3", facecolor="yellow", alpha=0.7))
+                    continue
+                else:
+                    print(f"Warning: Result missing 'model' key: {result}")
+                    continue
+            
             model = result['model']
 
             try:
@@ -525,22 +525,17 @@ class VisualizationData:
         X_flat = X.flatten() if X.ndim > 1 else X
         X_orig_flat = X_original.flatten()
 
-        # Use same normalization as in training
-        if degree > 3:
-            x_min, x_max = X_orig_flat.min(), X_orig_flat.max()
-            if x_max - x_min > 1e-10:
-                X_normalized = 2 * (X_flat - x_min) / (x_max - x_min) - 1
-            else:
-                X_normalized = X_flat
+        # Use same normalization as in training - [0, 1] range
+        x_min, x_max = X_orig_flat.min(), X_orig_flat.max()
+        if x_max - x_min > 1e-10:
+            X_normalized = (X_flat - x_min) / (x_max - x_min)
         else:
             X_normalized = X_flat
 
         polynomial_features = []
         for d in range(1, degree + 1):
-            if d > 5:
-                feature = X_normalized ** d / (10 ** (d - 5))
-            else:
-                feature = X_normalized ** d
+            # ODSTRANIT nebo ZMIRNIT škálování - žádné dodatečné škálování
+            feature = X_normalized ** d  # Žádné dodatečné škálování
             polynomial_features.append(feature)
 
         return np.column_stack(polynomial_features)

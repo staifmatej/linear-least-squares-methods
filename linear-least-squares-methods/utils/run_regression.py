@@ -194,11 +194,11 @@ class RegressionRun:
         if regression_type == 1:
             return least_squares_numpy.LinearRegression(degree=1, **kwargs)
         if regression_type == 2:
-            return least_squares_numpy.RidgeRegression(alpha=1.0)
+            return least_squares_numpy.RidgeRegression(alpha=0.001)
         if regression_type == 3:
-            return least_squares_numpy.LassoRegression(alpha=1.0)
+            return least_squares_numpy.LassoRegression(alpha=0.0001)
         if regression_type == 4:
-            return least_squares_numpy.ElasticNetRegression(alpha=1.0, l1_ratio=0.5)
+            return least_squares_numpy.ElasticNetRegression(alpha=0.0001, l1_ratio=0.5)
         raise ValueError(f"Unknown regression type: {regression_type}")
 
     def _run_numpy_regression(self, X, y, regression_type, function_type):
@@ -224,11 +224,15 @@ class RegressionRun:
             X_poly = self._generate_polynomial_features(X, degree)
 
             if regression_type == 2:
-                model = least_squares_numpy.RidgeRegression(alpha=1.0)
+                # Pro vysoké stupně použít menší alpha
+                alpha = 0.001 if degree <= 5 else 0.00001
+                model = least_squares_numpy.RidgeRegression(alpha=alpha)
             elif regression_type == 3:
-                model = least_squares_numpy.LassoRegression(alpha=1.0)
+                alpha = 0.0001 if degree <= 5 else 0.000001
+                model = least_squares_numpy.LassoRegression(alpha=alpha)
             elif regression_type == 4:
-                model = least_squares_numpy.ElasticNetRegression(alpha=1.0, l1_ratio=0.5)
+                alpha = 0.0001 if degree <= 5 else 0.000001
+                model = least_squares_numpy.ElasticNetRegression(alpha=alpha, l1_ratio=0.5)
 
             model.fit(X_poly, y)
             coeffs = model.coefficients
@@ -264,7 +268,12 @@ class RegressionRun:
         X_transformed, y_transformed = self._transform_features_for_function_numpy(X, y, function_type)
 
         # Get model based on regression type
-        model = self._get_regression_model(regression_type)
+        if regression_type == 2:
+            model = least_squares_numpy.RidgeRegression(alpha=0.1)
+        elif regression_type == 3:
+            model = least_squares_numpy.LassoRegression(alpha=0.01)
+        elif regression_type == 4:
+            model = least_squares_numpy.ElasticNetRegression(alpha=0.01, l1_ratio=0.5)
 
         # Fit model
         model.fit(X_transformed, y_transformed)
@@ -279,38 +288,131 @@ class RegressionRun:
         }
 
     def _generate_polynomial_features(self, X, degree):
-        """Generate polynomial features up to specified degree with better normalization."""
+        """Generate polynomial features up to specified degree with stable scaling."""
         X_flat = X.flatten() if X.ndim > 1 else X
 
-        # Enhanced normalization for high-degree polynomials
-        if degree > 3:
-            x_min, x_max = X_flat.min(), X_flat.max()
-            if x_max - x_min > 1e-10:
-                # Normalize to [-1, 1] range
-                X_normalized = 2 * (X_flat - x_min) / (x_max - x_min) - 1
-            else:
-                X_normalized = X_flat
+        # Always normalize to [0, 1] range for better numerical stability
+        x_min, x_max = X_flat.min(), X_flat.max()
+        if x_max - x_min > 1e-10:
+            # Normalize to [0, 1] range instead of [-1, 1]
+            X_normalized = (X_flat - x_min) / (x_max - x_min)
         else:
             X_normalized = X_flat
 
         polynomial_features = []
         for d in range(1, degree + 1):
-            # For very high degrees, scale down the features
-            if d > 5:
-                feature = X_normalized ** d / (10 ** (d - 5))
-            else:
-                feature = X_normalized ** d
+            # ODSTRANIT nebo ZMIRNIT škálování - žádné dodatečné škálování
+            feature = X_normalized ** d  # Žádné dodatečné škálování
             polynomial_features.append(feature)
 
         return np.column_stack(polynomial_features)
 
-    def _run_cpp_regression(self, _X, _y, _regression_type, _function_type):
-        """Run regression using C++ implementation."""
-        return {
-            'status': 'not_implemented',
-            'engine': 'cpp',
-            'message': 'C++ implementation pending'
-        }
+    def _run_cpp_regression(self, X, y, regression_type, function_type):
+        """Run regression using C++ MLPack implementation."""
+        try:
+            # Try to import C++ module
+            from approaches import least_squares_cpp_wrapper as cpp_engine
+            
+            if not cpp_engine.CPP_AVAILABLE:
+                # Fallback to NumPy implementation
+                return self._run_numpy_regression(X, y, regression_type, function_type)
+            
+            if 1 <= function_type <= 7:
+                # For polynomial functions
+                degree = self.function_degree_mapping[function_type]
+                
+                if regression_type == 1:  # Linear regression
+                    model = cpp_engine.LinearRegression(degree=degree)
+                    X_flat = X.flatten() if hasattr(X, 'flatten') else X
+                    model.fit(X_flat, y)
+                    coeffs = model.coefficients
+                    return {
+                        'model': model,
+                        'coefficients': coeffs,
+                        'degree': degree,
+                        'regression_type': 'Linear',
+                        'function_type': function_type,
+                        'condition_number': model.condition_number
+                    }
+                
+                elif regression_type == 2:  # Ridge regression
+                    # Pro vysoké stupně použít menší alpha
+                    alpha = 0.001 if degree <= 5 else 0.00001
+                    
+                    # Generate polynomial features
+                    X_poly = self._generate_polynomial_features(X, degree)
+                    model = cpp_engine.RidgeRegression(alpha=alpha)
+                    model.fit(X_poly, y)
+                    coeffs = model.coefficients
+                    return {
+                        'model': model,
+                        'coefficients': coeffs,
+                        'degree': degree,
+                        'regression_type': 'Ridge',
+                        'function_type': function_type,
+                        'condition_number': getattr(model, 'condition_number', None)
+                    }
+                
+                else:
+                    # Lasso and ElasticNet use NumPy fallback (sklearn)
+                    from approaches import least_squares_numpy
+                    
+                    X_poly = self._generate_polynomial_features(X, degree)
+                    if regression_type == 3:
+                        alpha = 0.0001 if degree <= 5 else 0.000001
+                        model = least_squares_numpy.LassoRegression(alpha=alpha)
+                    elif regression_type == 4:
+                        alpha = 0.0001 if degree <= 5 else 0.000001
+                        model = least_squares_numpy.ElasticNetRegression(alpha=alpha, l1_ratio=0.5)
+                    
+                    model.fit(X_poly, y)
+                    coeffs = model.coefficients
+                    return {
+                        'model': model,
+                        'coefficients': coeffs,
+                        'degree': degree,
+                        'regression_type': self.regression_mapping[regression_type],
+                        'function_type': function_type
+                    }
+            
+            else:
+                # For special functions (8-16), use NumPy fallback
+                from approaches import least_squares_numpy
+                
+                if regression_type == 1:
+                    X_transformed, y_transformed = self._transform_features_for_function_numpy(X, y, function_type)
+                    model = least_squares_numpy.RidgeRegression(alpha=0.0)
+                elif regression_type == 2:
+                    X_transformed, y_transformed = self._transform_features_for_function_numpy(X, y, function_type)
+                    model = least_squares_numpy.RidgeRegression(alpha=0.001)
+                elif regression_type == 3:
+                    X_transformed, y_transformed = self._transform_features_for_function_numpy(X, y, function_type)
+                    model = least_squares_numpy.LassoRegression(alpha=0.0001)
+                elif regression_type == 4:
+                    X_transformed, y_transformed = self._transform_features_for_function_numpy(X, y, function_type)
+                    model = least_squares_numpy.ElasticNetRegression(alpha=0.0001, l1_ratio=0.5)
+                
+                model.fit(X_transformed, y_transformed)
+                
+                return {
+                    'model': model,
+                    'coefficients': model.coefficients,
+                    'function_type': function_type,
+                    'regression_type': self.regression_mapping[regression_type],
+                    'transformation': f'Function {function_type}',
+                    'is_transformed': True
+                }
+        
+        except ImportError:
+            # Fallback to NumPy implementation
+            print("C++ MLPack engine not available, using NumPy fallback...")
+            return self._run_numpy_regression(X, y, regression_type, function_type)
+        except Exception as e:
+            return {
+                'status': 'failed',
+                'engine': 'cpp',
+                'error': str(e)
+            }
 
     def _run_numba_regression(self, X, y, regression_type, function_type):
         """Run regression using Numba implementation."""
@@ -333,7 +435,9 @@ class RegressionRun:
                 }
 
             elif regression_type == 2:  # Ridge regression
-                model = least_squares_numba.RidgeRegression(alpha=1.0)
+                # Pro vysoké stupně použít menší alpha
+                alpha = 0.001 if degree <= 5 else 0.00001
+                model = least_squares_numba.RidgeRegression(alpha=alpha)
                 X_reshaped = X.reshape(-1, 1) if hasattr(X, 'reshape') else [[x] for x in X]
                 model.fit(X_reshaped, y)
                 coeffs = model.coefficients if hasattr(model, 'coefficients') else [model.intercept] + list(model.coefficients) if hasattr(model, 'intercept') else []
@@ -346,7 +450,8 @@ class RegressionRun:
                 }
 
             elif regression_type == 3:  # Lasso regression
-                model = least_squares_numba.LassoRegression(alpha=0.1)
+                alpha = 0.0001 if degree <= 5 else 0.000001
+                model = least_squares_numba.LassoRegression(alpha=alpha)
                 X_reshaped = X.reshape(-1, 1) if hasattr(X, 'reshape') else [[x] for x in X]
                 model.fit(X_reshaped, y)
                 coeffs = model.coefficients
@@ -359,7 +464,8 @@ class RegressionRun:
                 }
 
             elif regression_type == 4:  # ElasticNet regression
-                model = least_squares_numba.ElasticNetRegression(alpha=0.1, l1_ratio=0.5)
+                alpha = 0.0001 if degree <= 5 else 0.000001
+                model = least_squares_numba.ElasticNetRegression(alpha=alpha, l1_ratio=0.5)
                 X_reshaped = X.reshape(-1, 1) if hasattr(X, 'reshape') else [[x] for x in X]
                 model.fit(X_reshaped, y)
                 coeffs = model.coefficients
@@ -391,7 +497,7 @@ class RegressionRun:
                     }
 
                 elif regression_type == 2:  # Ridge regression
-                    model = least_squares_numba.RidgeRegression(alpha=1.0)
+                    model = least_squares_numba.RidgeRegression(alpha=0.001)
                     model.fit(X_transformed, y_transformed)
                     coeffs = model.coefficients if hasattr(model, 'coefficients') else [model.intercept] + list(model.coefficients) if hasattr(model, 'intercept') else []
                     return {
@@ -467,11 +573,15 @@ class RegressionRun:
             X_poly = self._generate_polynomial_features_pure(X, degree)
 
             if regression_type == 2:  # Ridge
-                model = least_squares_pure.RidgeRegression(alpha=1.0)
+                # Pro vysoké stupně použít menší alpha
+                alpha = 0.001 if degree <= 5 else 0.00001
+                model = least_squares_pure.RidgeRegression(alpha=alpha)
             elif regression_type == 3:  # Lasso
-                model = least_squares_pure.LassoRegression(alpha=1.0)
+                alpha = 0.0001 if degree <= 5 else 0.000001
+                model = least_squares_pure.LassoRegression(alpha=alpha)
             elif regression_type == 4:  # ElasticNet
-                model = least_squares_pure.ElasticNetRegression(alpha=1.0, l1_ratio=0.5)
+                alpha = 0.0001 if degree <= 5 else 0.000001
+                model = least_squares_pure.ElasticNetRegression(alpha=alpha, l1_ratio=0.5)
 
             model.fit(X_poly, y)
             coeffs = model.coefficients
@@ -505,11 +615,11 @@ class RegressionRun:
 
         # Get model based on regression type
         if regression_type == 2:
-            model = least_squares_pure.RidgeRegression(alpha=1.0)
+            model = least_squares_pure.RidgeRegression(alpha=0.001)
         elif regression_type == 3:
-            model = least_squares_pure.LassoRegression(alpha=1.0)
+            model = least_squares_pure.LassoRegression(alpha=0.0001)
         elif regression_type == 4:
-            model = least_squares_pure.ElasticNetRegression(alpha=1.0, l1_ratio=0.5)
+            model = least_squares_pure.ElasticNetRegression(alpha=0.0001, l1_ratio=0.5)
 
         # Fit model
         model.fit(X_transformed, y_transformed)
@@ -524,16 +634,26 @@ class RegressionRun:
         }
 
     def _generate_polynomial_features_pure(self, X, degree):
-        """Generate polynomial features for pure Python (no NumPy)."""
+        """Generate polynomial features for pure Python with stable scaling."""
         X_flat = X.flatten() if hasattr(X, 'flatten') else [item for sublist in X for item in sublist] if isinstance(X[0], list) else X
         n = len(X_flat)
         
-        # Create list of lists for polynomial features
+        # Normalize to [0, 1] range for better numerical stability
+        x_min = min(X_flat)
+        x_max = max(X_flat)
+        if x_max - x_min > 1e-10:
+            X_normalized = [(x - x_min) / (x_max - x_min) for x in X_flat]
+        else:
+            X_normalized = X_flat
+        
+        # Create list of lists for polynomial features bez škálování
         polynomial_features = []
         for i in range(n):
             row = []
             for d in range(1, degree + 1):
-                row.append(X_flat[i] ** d)
+                # ODSTRANIT nebo ZMIRNIT škálování - žádné dodatečné škálování
+                feature = X_normalized[i] ** d  # Žádné dodatečné škálování
+                row.append(feature)
             polynomial_features.append(row)
         
         return polynomial_features

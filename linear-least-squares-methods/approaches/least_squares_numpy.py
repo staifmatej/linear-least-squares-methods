@@ -348,7 +348,7 @@ class LassoRegression(LeastSquares):
         self.coefficients = None
 
     def fit(self, x, y):
-        """Fit Lasso regression model."""
+        """Fit Lasso regression model using sklearn Lasso."""
         x = np.array(x)
         y = np.array(y)
 
@@ -356,29 +356,27 @@ class LassoRegression(LeastSquares):
         if x.ndim == 1:
             x = x.reshape(-1, 1)
 
-        # Call multivariate_ols which adds intercept
-        self.coefficients = self.multivariate_ols(x, y)
+        # Use sklearn Lasso directly for proper L1 regularization
+        lasso = Lasso(alpha=self.alpha, max_iter=self.max_iter,
+                      tol=self.tol, fit_intercept=True)
+        lasso.fit(x, y)
+        
+        # Store sklearn model for prediction
+        self.model = lasso
+        # Store coefficients in our format [intercept, coef1, coef2, ...]
+        self.coefficients = np.concatenate([[lasso.intercept_], lasso.coef_])
         return self
 
     def predict(self, x):
-        """Prediction using Lasso coefficients."""
-        fit_error_handling(self.coefficients)
+        """Prediction using sklearn Lasso model."""
+        if not hasattr(self, 'model') or self.model is None:
+            raise ValueError("Model not fitted yet. Call fit() first.")
+            
         x = np.array(x)
-
         if x.ndim == 1:
             x = x.reshape(-1, 1)
-
-        X_with_intercept = np.column_stack([np.ones(len(x)), x])
-
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", RuntimeWarning)
-            predictions = X_with_intercept @ self.coefficients
-
-            # Handle any NaN or inf values
-            if np.any(np.isnan(predictions)) or np.any(np.isinf(predictions)):
-                predictions = np.zeros_like(predictions)
-
-        return predictions
+            
+        return self.model.predict(x)
 
 
 class ElasticNetRegression(LeastSquares):
@@ -393,7 +391,7 @@ class ElasticNetRegression(LeastSquares):
         self.coefficients = None
 
     def fit(self, x, y):
-        """Fit ElasticNet regression model."""
+        """Fit ElasticNet regression model using sklearn ElasticNet."""
         x = np.array(x)
         y = np.array(y)
 
@@ -401,26 +399,24 @@ class ElasticNetRegression(LeastSquares):
         if x.ndim == 1:
             x = x.reshape(-1, 1)
 
-        # Call multivariate_ols which adds intercept
-        self.coefficients = self.multivariate_ols(x, y)
+        # Use sklearn ElasticNet directly for proper L1+L2 regularization
+        elasticnet = ElasticNet(alpha=self.alpha, l1_ratio=self.l1_ratio,
+                               max_iter=self.max_iter, tol=self.tol, fit_intercept=True)
+        elasticnet.fit(x, y)
+        
+        # Store sklearn model for prediction
+        self.model = elasticnet
+        # Store coefficients in our format [intercept, coef1, coef2, ...]
+        self.coefficients = np.concatenate([[elasticnet.intercept_], elasticnet.coef_])
         return self
 
     def predict(self, x):
-        """Prediction using ElasticNet coefficients."""
-        fit_error_handling(self.coefficients)
+        """Prediction using sklearn ElasticNet model."""
+        if not hasattr(self, 'model') or self.model is None:
+            raise ValueError("Model not fitted yet. Call fit() first.")
+            
         x = np.array(x)
-
         if x.ndim == 1:
             x = x.reshape(-1, 1)
-
-        X_with_intercept = np.column_stack([np.ones(len(x)), x])
-
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", RuntimeWarning)
-            predictions = X_with_intercept @ self.coefficients
-
-            # Handle any NaN or inf values
-            if np.any(np.isnan(predictions)) or np.any(np.isinf(predictions)):
-                predictions = np.zeros_like(predictions)
-
-        return predictions
+            
+        return self.model.predict(x)
