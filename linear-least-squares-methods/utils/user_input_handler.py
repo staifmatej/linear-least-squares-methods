@@ -16,19 +16,18 @@ class UserInputHandler:
         """Get regression engine choice from user."""
 
         print("══════ Regression Engines ══════")
-        print("1. C++ with ML Pack")
-        print("2. Python with Numpy")
-        print("3. Python with Numba")
-        print("4. Pure Python with for-loops")
+        print("1. Python with Numpy")
+        print("2. Python with Numba")
+        print("3. Pure Python with for-loops")
         print(f"{S_BOLD}* Lasso/ElasticNet use sklearn coordinate descent{E_BOLD}")
         print("════════════════════════════════")
 
         while 1:
             try:
-                choice = int(input("\nChoose option (1-4): "))
-                if 1 <= choice <= 4:
+                choice = int(input("\nChoose option (1-3): "))
+                if 1 <= choice <= 3:
                     return choice
-                print(f"{S_RED}Invalid input{E_RED}: Please enter number 1-4")
+                print(f"{S_RED}Invalid input{E_RED}: Please enter number 1-3")
             except ValueError:
                 print(f"{S_RED}Invalid input{E_RED}: Please enter a valid number")
 

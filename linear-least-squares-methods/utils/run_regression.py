@@ -21,10 +21,9 @@ class RegressionRun:
         self.results = {}
 
         self.engine_mapping = {
-            1: "cpp",
-            2: "numpy",
-            3: "numba",
-            4: "pure"
+            1: "numpy",
+            2: "numba",
+            3: "pure"
         }
 
         self.regression_mapping = {
@@ -53,13 +52,11 @@ class RegressionRun:
 
     def _run_single_regression(self, X, y, regression_type, function_type):
         """Run single regression based on engine choice."""
-        if self.engine_choice == 2:
-            return self._run_numpy_regression(X, y, regression_type, function_type)
         if self.engine_choice == 1:
-            return self._run_cpp_regression(X, y, regression_type, function_type)
-        if self.engine_choice == 3:
+            return self._run_numpy_regression(X, y, regression_type, function_type)
+        if self.engine_choice == 2:
             return self._run_numba_regression(X, y, regression_type, function_type)
-        if self.engine_choice == 4:
+        if self.engine_choice == 3:
             return self._run_pure_regression(X, y, regression_type, function_type)
 
         raise ValueError(f"Unknown engine choice: {self.engine_choice}")
@@ -306,113 +303,6 @@ class RegressionRun:
             polynomial_features.append(feature)
 
         return np.column_stack(polynomial_features)
-
-    def _run_cpp_regression(self, X, y, regression_type, function_type):
-        """Run regression using C++ MLPack implementation."""
-        try:
-            # Try to import C++ module
-            from approaches import least_squares_cpp_wrapper as cpp_engine
-            
-            if not cpp_engine.CPP_AVAILABLE:
-                # Fallback to NumPy implementation
-                return self._run_numpy_regression(X, y, regression_type, function_type)
-            
-            if 1 <= function_type <= 7:
-                # For polynomial functions
-                degree = self.function_degree_mapping[function_type]
-                
-                if regression_type == 1:  # Linear regression
-                    model = cpp_engine.LinearRegression(degree=degree)
-                    X_flat = X.flatten() if hasattr(X, 'flatten') else X
-                    model.fit(X_flat, y)
-                    coeffs = model.coefficients
-                    return {
-                        'model': model,
-                        'coefficients': coeffs,
-                        'degree': degree,
-                        'regression_type': 'Linear',
-                        'function_type': function_type,
-                        'condition_number': model.condition_number
-                    }
-                
-                elif regression_type == 2:  # Ridge regression
-                    # Pro vysoké stupně použít menší alpha
-                    alpha = 0.001 if degree <= 5 else 0.00001
-                    
-                    # Generate polynomial features
-                    X_poly = self._generate_polynomial_features(X, degree)
-                    model = cpp_engine.RidgeRegression(alpha=alpha)
-                    model.fit(X_poly, y)
-                    coeffs = model.coefficients
-                    return {
-                        'model': model,
-                        'coefficients': coeffs,
-                        'degree': degree,
-                        'regression_type': 'Ridge',
-                        'function_type': function_type,
-                        'condition_number': getattr(model, 'condition_number', None)
-                    }
-                
-                else:
-                    # Lasso and ElasticNet use NumPy fallback (sklearn)
-                    from approaches import least_squares_numpy
-                    
-                    X_poly = self._generate_polynomial_features(X, degree)
-                    if regression_type == 3:
-                        alpha = 0.0001 if degree <= 5 else 0.000001
-                        model = least_squares_numpy.LassoRegression(alpha=alpha)
-                    elif regression_type == 4:
-                        alpha = 0.0001 if degree <= 5 else 0.000001
-                        model = least_squares_numpy.ElasticNetRegression(alpha=alpha, l1_ratio=0.5)
-                    
-                    model.fit(X_poly, y)
-                    coeffs = model.coefficients
-                    return {
-                        'model': model,
-                        'coefficients': coeffs,
-                        'degree': degree,
-                        'regression_type': self.regression_mapping[regression_type],
-                        'function_type': function_type
-                    }
-            
-            else:
-                # For special functions (8-16), use NumPy fallback
-                from approaches import least_squares_numpy
-                
-                if regression_type == 1:
-                    X_transformed, y_transformed = self._transform_features_for_function_numpy(X, y, function_type)
-                    model = least_squares_numpy.RidgeRegression(alpha=0.0)
-                elif regression_type == 2:
-                    X_transformed, y_transformed = self._transform_features_for_function_numpy(X, y, function_type)
-                    model = least_squares_numpy.RidgeRegression(alpha=0.001)
-                elif regression_type == 3:
-                    X_transformed, y_transformed = self._transform_features_for_function_numpy(X, y, function_type)
-                    model = least_squares_numpy.LassoRegression(alpha=0.0001)
-                elif regression_type == 4:
-                    X_transformed, y_transformed = self._transform_features_for_function_numpy(X, y, function_type)
-                    model = least_squares_numpy.ElasticNetRegression(alpha=0.0001, l1_ratio=0.5)
-                
-                model.fit(X_transformed, y_transformed)
-                
-                return {
-                    'model': model,
-                    'coefficients': model.coefficients,
-                    'function_type': function_type,
-                    'regression_type': self.regression_mapping[regression_type],
-                    'transformation': f'Function {function_type}',
-                    'is_transformed': True
-                }
-        
-        except ImportError:
-            # Fallback to NumPy implementation
-            print("C++ MLPack engine not available, using NumPy fallback...")
-            return self._run_numpy_regression(X, y, regression_type, function_type)
-        except Exception as e:
-            return {
-                'status': 'failed',
-                'engine': 'cpp',
-                'error': str(e)
-            }
 
     def _run_numba_regression(self, X, y, regression_type, function_type):
         """Run regression using Numba implementation."""
