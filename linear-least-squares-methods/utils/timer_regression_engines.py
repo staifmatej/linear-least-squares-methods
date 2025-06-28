@@ -22,6 +22,10 @@ E_RED = "\033[0m"
 S_YELLOW = "\033[93m"
 E_YELLOW = "\033[0m"
 
+def print_time(avg_time):
+    """Print time"""
+    print(f"\n{S_GREEN}{format_time(avg_time)}{E_GREEN}\n", flush=True)
+
 
 def clear_all_caches():
     """Clear all performance-related caches for fair benchmarking."""
@@ -155,6 +159,7 @@ def format_time(seconds):
 def run_comprehensive_benchmark(X, y, regression_types, function_types, num_runs):
     """Run full pipeline benchmark - complete implementation with fitting."""
     
+    print("═══════════════════ STARTING BENCHMARK ═══════════════════\n")
 
     # Test NumPy and Pure Python (normal engines)
     pipeline_results = {}
@@ -163,14 +168,14 @@ def run_comprehensive_benchmark(X, y, regression_types, function_types, num_runs
     engines = {1: "NumPy", 3: "Pure Python"}
     
     for engine_id, engine_name in engines.items():
-        print(f"  Testing {engine_name} full pipeline...", end=" ", flush=True)
+        print(f"Testing {engine_name} full pipeline...", end=" ", flush=True)
         clear_all_caches()  # Clear for each test
         try:
             avg_time, total_time = time_single_engine(
                 engine_id, X, y, regression_types, function_types, num_runs)
             if avg_time is not None:
                 pipeline_results[engine_name] = avg_time
-                print(f"\n{S_GREEN}{format_time(avg_time)}{E_GREEN}")
+                print_time(avg_time)
             else:
                 pipeline_results[engine_name] = None
                 print(f"{S_RED}Failed{E_RED}")
@@ -178,16 +183,15 @@ def run_comprehensive_benchmark(X, y, regression_types, function_types, num_runs
             pipeline_results[engine_name] = None
             print(f"{S_RED}Failed{E_RED}")
     
-    # Test Numba - COLD START (including JIT compilation time)
-    print(f"\n{S_BOLD}Testing Numba COLD START (with JIT compilation):{E_BOLD}")
-    print(f"  Testing Numba pipeline (COLD)...", end=" ", flush=True)
+    print(f"{S_BOLD}Testing Numba Cold Start (with JIT compilation):{E_BOLD}")
+    print(f"Testing Numba pipeline (COLD)...", end=" ", flush=True)
     clear_all_caches()  # Critical: clear ALL caches for true cold start
     try:
         avg_time, total_time = time_single_engine_cold_numba(
             X, y, regression_types, function_types, num_runs)
         if avg_time is not None:
             pipeline_results["Numba (Cold)"] = avg_time
-            print(f"\n{S_GREEN}{format_time(avg_time)}{E_GREEN}")
+            print_time(avg_time)
         else:
             pipeline_results["Numba (Cold)"] = None
             print(f"{S_RED}Failed{E_RED}")
@@ -196,15 +200,15 @@ def run_comprehensive_benchmark(X, y, regression_types, function_types, num_runs
         print(f"{S_RED}Failed{E_RED}")
     
     # Test Numba - WARM START (after JIT compilation)  
-    print(f"\n{S_BOLD}Testing Numba WARM START (JIT pre-compiled):{E_BOLD}")
-    print(f"  Testing Numba pipeline (WARM)...\n", flush=True)
-    # Don't clear caches - use already compiled Numba functions
+    print(f"{S_BOLD}Testing Numba Warm Start (JIT pre-compiled):{E_BOLD}")
+    print(f"Testing Numba pipeline (WARM)... {S_GREEN}Done{E_GREEN}\n", end=" ", flush=True)
+
     try:
         avg_time, total_time = time_single_engine(
             2, X, y, regression_types, function_types, num_runs)
         if avg_time is not None:
             pipeline_results["Numba (Warm)"] = avg_time
-            print(f"{S_GREEN}{format_time(avg_time)}{E_GREEN}")
+            print_time(avg_time)
         else:
             pipeline_results["Numba (Warm)"] = None
             print(f"{S_RED}Failed{E_RED}")
@@ -246,7 +250,7 @@ def run_performance_benchmark(X, y, selected_regression_types, selected_function
 def display_pipeline_results_table(pipeline_results, num_runs, total_combinations):
     """Display pipeline results using tabulate for nice formatting."""
     
-    print(f"\n{S_BOLD}══════════ FULL IMPLEMENTATION BENCHMARK RESULTS ══════════{E_BOLD}")
+    print(f"{S_BOLD}══════════ FULL IMPLEMENTATION BENCHMARK RESULTS ══════════{E_BOLD}\n")
 
     # Prepare data for pipeline table  
     pipeline_table_data = []
@@ -257,7 +261,6 @@ def display_pipeline_results_table(pipeline_results, num_runs, total_combination
         valid_pipeline.sort(key=lambda x: x[1])
         fastest_pipeline_time = valid_pipeline[0][1]
         
-        print(f"\n{S_BOLD}COMPLETE REGRESSION PIPELINE PERFORMANCE{E_BOLD}")
         print(f"Full implementation with fitting, transformation, and prediction")
         print(f"Operations: {total_combinations} combinations | Runs: {num_runs} each\n")
         
