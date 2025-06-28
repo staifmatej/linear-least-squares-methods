@@ -213,7 +213,8 @@ class RegressionRun:
                     'coefficients': coeffs,
                     'degree': degree,
                     'regression_type': 'Linear',
-                    'function_type': function_type
+                    'function_type': function_type,
+                    'condition_number': getattr(model, 'condition_number', None)
                 }
 
             # Ridge, Lasso, ElasticNet for polynomials
@@ -239,7 +240,8 @@ class RegressionRun:
                 'coefficients': coeffs,
                 'degree': degree,
                 'regression_type': self.regression_mapping[regression_type],
-                'function_type': function_type
+                'function_type': function_type,
+                'condition_number': getattr(model, 'condition_number', None)
             }
 
         # For special functions 8-16
@@ -258,7 +260,8 @@ class RegressionRun:
                 'function_type': function_type,
                 'regression_type': 'Linear',
                 'transformation': f'Function {function_type}',
-                'is_transformed': True
+                'is_transformed': True,
+                'condition_number': getattr(model, 'condition_number', None)
             }
 
         # For Ridge, Lasso, ElasticNet on special functions
@@ -281,7 +284,8 @@ class RegressionRun:
             'function_type': function_type,
             'regression_type': self.regression_mapping[regression_type],
             'transformation': f'Function {function_type}',
-            'is_transformed': True
+            'is_transformed': True,
+            'condition_number': getattr(model, 'condition_number', None)
         }
 
     def _generate_polynomial_features(self, X, degree):
@@ -481,7 +485,8 @@ class RegressionRun:
                 'coefficients': coeffs,
                 'degree': degree,
                 'regression_type': self.regression_mapping[regression_type],
-                'function_type': function_type
+                'function_type': function_type,
+                'condition_number': getattr(model, 'condition_number', None)
             }
 
         # For special functions 8-16
@@ -497,7 +502,8 @@ class RegressionRun:
                 'function_type': function_type,
                 'regression_type': 'Linear',
                 'transformation': f'Function {function_type}',
-                'is_transformed': True
+                'is_transformed': True,
+                'condition_number': getattr(model, 'condition_number', None)
             }
 
         # For Ridge, Lasso, ElasticNet on special functions
@@ -520,7 +526,8 @@ class RegressionRun:
             'function_type': function_type,
             'regression_type': self.regression_mapping[regression_type],
             'transformation': f'Function {function_type}',
-            'is_transformed': True
+            'is_transformed': True,
+            'condition_number': getattr(model, 'condition_number', None)
         }
 
     def _generate_polynomial_features_pure(self, X, degree):

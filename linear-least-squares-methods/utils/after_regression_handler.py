@@ -56,10 +56,9 @@ def print_data_loaded(X, y):
 def print_selected_specifications(engine_choice, regression_types, function_types):
     """Print selected configuration summary."""
     engine_mapping = {
-        1: "approaches/least_squares_cpp.cpp",
-        2: "approaches/least_squares_numpy.py",
-        3: "approaches/least_squares_numba.py",
-        4: "approaches/least_squares_pure.py"
+        1: "approaches/least_squares_numpy.py",
+        2: "approaches/least_squares_numba.py",
+        3: "approaches/least_squares_pure.py"
     }
 
     print("\n═══ SELECTED CONFIGURATION ════")
@@ -72,14 +71,13 @@ def print_selected_specifications(engine_choice, regression_types, function_type
 def print_selected_configurations(engine_choice, regression_types, function_types):
     """Print detailed selected configuration for menu option 5."""
     engine_mapping = {
-        1: "C++ with ML Pack",
-        2: "Python with NumPy",
-        3: "Python with Numba",
-        4: "Pure Python with for-loops"
+        1: "Python with NumPy",
+        2: "Python with Numba",
+        3: "Pure Python with for-loops"
     }
 
     regression_mapping = {
-        1: "Polynomial regression (Least Squares)",
+        1: "Linear regression (Least Squares)",
         2: "Ridge regression (Least Squares)",
         3: "Lasso Regression (Coordinate Descent)",
         4: "Elastic Net Regression (Coordinate Descent)"
@@ -135,7 +133,7 @@ def print_selected_configurations(engine_choice, regression_types, function_type
 def print_condition_numbers(results, regression_types, function_types):
     """Print condition numbers for all fitted models."""
     regression_mapping = {
-        1: "Polynomial regression",
+        1: "Linear regression",
         2: "Ridge regression",
         3: "Lasso regression",
         4: "ElasticNet regression"

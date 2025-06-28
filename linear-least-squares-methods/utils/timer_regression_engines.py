@@ -8,6 +8,7 @@ import os
 import shutil
 import gc
 from tabulate import tabulate
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.run_regression import RegressionRun
 from utils.after_regression_handler import print_press_enter_to_continue
@@ -279,5 +280,4 @@ def display_pipeline_results_table(pipeline_results, num_runs, total_combination
                       stralign="left"))
 
     print("\n═══════════════════════════════════════════════════════════")
-
     print_press_enter_to_continue()
