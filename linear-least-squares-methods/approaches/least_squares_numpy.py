@@ -5,9 +5,7 @@ import numpy as np
 from sklearn.linear_model import Lasso, ElasticNet
 
 # Suppress common warnings
-warnings.filterwarnings('ignore', category=DeprecationWarning)
 warnings.filterwarnings('ignore', message='Objective did not converge')
-warnings.filterwarnings('ignore', message='FigureCanvasAgg is non-interactive')
 
 # Global constants used for bold text and red warning messages.
 S_BOLD = "\033[1m"

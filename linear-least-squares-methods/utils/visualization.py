@@ -6,10 +6,7 @@ import numpy as np
 import warnings
 
 # Suppress common warnings
-warnings.filterwarnings('ignore', category=DeprecationWarning)
 warnings.filterwarnings('ignore', message='Objective did not converge')
-warnings.filterwarnings('ignore', message='FigureCanvasAgg is non-interactive')
-warnings.filterwarnings("ignore", category=RuntimeWarning, module="sklearn")
 
 # Set seaborn style for beautiful modern plots
 sns.set_theme(style="whitegrid", palette="Set2")
