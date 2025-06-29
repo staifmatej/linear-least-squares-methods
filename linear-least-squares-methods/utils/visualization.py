@@ -222,7 +222,17 @@ class VisualizationData:
                 else:
                     # For polynomials
                     if hasattr(model, 'predict') and model.__class__.__name__ == 'LinearRegression':
-                        y_pred_smooth = model.predict(x_smooth)
+                        # Check if this is polynomial LinearRegression
+                        degree = result.get('degree', 1)
+                        if degree > 1:
+                            # For polynomial LinearRegression, use model's own polynomial feature generation
+                            # This ensures consistent normalization parameters
+                            X_smooth_poly = model._generate_polynomial_features(x_smooth)
+                            X_smooth_poly_with_intercept = np.column_stack([np.ones(len(x_smooth)), X_smooth_poly])
+                            y_pred_smooth = X_smooth_poly_with_intercept @ model.coefficients
+                        else:
+                            # Regular linear regression
+                            y_pred_smooth = model.predict(x_smooth)
                         y_pred_smooth = self._ensure_numpy_array(y_pred_smooth)
                     else:
                         # For Ridge/Lasso/ElasticNet on polynomials
@@ -434,7 +444,17 @@ class VisualizationData:
                 else:
                     # For polynomials (same logic)
                     if hasattr(model, 'predict') and model.__class__.__name__ == 'LinearRegression':
-                        y_pred_smooth = model.predict(x_smooth)
+                        # Check if this is polynomial LinearRegression
+                        degree = result.get('degree', 1)
+                        if degree > 1:
+                            # For polynomial LinearRegression, use model's own polynomial feature generation
+                            # This ensures consistent normalization parameters
+                            X_smooth_poly = model._generate_polynomial_features(x_smooth)
+                            X_smooth_poly_with_intercept = np.column_stack([np.ones(len(x_smooth)), X_smooth_poly])
+                            y_pred_smooth = X_smooth_poly_with_intercept @ model.coefficients
+                        else:
+                            # Regular linear regression
+                            y_pred_smooth = model.predict(x_smooth)
                         y_pred_smooth = self._ensure_numpy_array(y_pred_smooth)
                     else:
                         degree = result.get('degree', 1)

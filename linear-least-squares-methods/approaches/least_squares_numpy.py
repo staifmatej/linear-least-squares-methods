@@ -251,11 +251,16 @@ class LinearRegression(LeastSquares):
         fit_error_handling(self.coefficients)
         x = np.array(x)
 
-        if x.ndim > 1:
-            x = x.flatten()
-
-        X_polynomial = self._generate_polynomial_features(x)
-        X_polynomial_with_intercept = np.column_stack([np.ones(len(x)), X_polynomial])
+        # Check if we already have polynomial features (from visualization)
+        if x.ndim == 2 and x.shape[1] == self.degree:
+            # Already polynomial features, just add intercept
+            X_polynomial_with_intercept = np.column_stack([np.ones(x.shape[0]), x])
+        else:
+            # Generate polynomial features from raw x values
+            if x.ndim > 1:
+                x = x.flatten()
+            X_polynomial = self._generate_polynomial_features(x)
+            X_polynomial_with_intercept = np.column_stack([np.ones(len(x)), X_polynomial])
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", RuntimeWarning)
