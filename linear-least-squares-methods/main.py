@@ -1,5 +1,16 @@
 """Main script for testing linear regression implementations - FIXED VERSION."""
 
+import os
+import warnings
+# Suppress OpenMP warnings before any imports (especially in Jupyter)
+os.environ['OMP_DISPLAY_ENV'] = 'FALSE'
+os.environ['OMP_NESTED'] = 'FALSE'
+os.environ['KMP_WARNINGS'] = 'FALSE'
+
+# Redirect OpenMP stderr to suppress warnings
+import sys
+from contextlib import redirect_stderr
+from io import StringIO
 
 from utils import (
     DataLoader,

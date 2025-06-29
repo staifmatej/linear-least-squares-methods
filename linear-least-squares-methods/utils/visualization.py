@@ -3,6 +3,13 @@
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
+import warnings
+
+# Suppress common warnings
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+warnings.filterwarnings('ignore', message='Objective did not converge')
+warnings.filterwarnings('ignore', message='FigureCanvasAgg is non-interactive')
+warnings.filterwarnings("ignore", category=RuntimeWarning, module="sklearn")
 
 # Set seaborn style for beautiful modern plots
 sns.set_theme(style="whitegrid", palette="Set2")
@@ -159,15 +166,8 @@ class VisualizationData:
 
             # Get predictions - handle different result formats
             if 'model' not in result:
-                # C++ engine returns status instead of model when not available
-                if result.get('status') == 'not_available':
-                    ax.text(0.5, 0.5, 'C++ Engine Not Available\nUsing NumPy Fallback', 
-                           transform=ax.transAxes, ha='center', va='center',
-                           fontsize=12, bbox=dict(boxstyle="round,pad=0.3", facecolor="yellow", alpha=0.7))
-                    continue
-                else:
-                    print(f"Warning: Result missing 'model' key: {result}")
-                    continue
+                print(f"Warning: Result missing 'model' key: {result}")
+                continue
             
             model = result['model']
 
@@ -179,6 +179,7 @@ class VisualizationData:
                 is_sklearn_wrapper = (hasattr(model, 'model') and 
                                      hasattr(model.model, 'predict') and 
                                      model.__class__.__name__ in ['LassoRegression', 'ElasticNetRegression'])
+
 
                 # Handle predictions correctly for each function type
                 if func_type >= 8:  # Special functions
@@ -231,24 +232,26 @@ class VisualizationData:
                         degree = result.get('degree', 1)
 
                         if is_pure_python or is_numba_python:
-                            # Convert x_smooth to list format for pure Python and numba
-                            x_smooth_list = x_smooth.tolist()
+                            # Use the same polynomial feature generation as the engine
+                            from utils.run_regression import RegressionRun
+                            runner = RegressionRun(1, [], [])  # Temporary runner to access method
+                            X_smooth_poly_np = runner._generate_polynomial_features(x_smooth.reshape(-1, 1), degree)
+                            X_smooth_poly = X_smooth_poly_np.tolist()
 
-                            # Generate polynomial features in list format
-                            X_smooth_poly = []
-                            for x in x_smooth_list:
-                                row = []
-                                for d in range(1, degree + 1):
-                                    row.append(x ** d)
-                                X_smooth_poly.append(row)
-
-                            y_pred_smooth = model.predict(X_smooth_poly)
+                            # For sklearn wrappers in Pure Python, use underlying sklearn model
+                            if is_sklearn_wrapper and hasattr(model, 'model'):
+                                # Convert to numpy for sklearn
+                                X_smooth_poly_np = np.array(X_smooth_poly)
+                                y_pred_smooth = model.model.predict(X_smooth_poly_np)
+                            else:
+                                y_pred_smooth = model.predict(X_smooth_poly)
                             y_pred_smooth = self._ensure_numpy_array(y_pred_smooth)
                         else:
-                            # Use numpy version
-                            X_smooth_poly = self._generate_polynomial_features_for_plot(
-                                x_smooth.reshape(-1, 1), degree, self.X
-                            )
+                            # Use the same polynomial feature generation as the engine
+                            from utils.run_regression import RegressionRun
+                            runner = RegressionRun(1, [], [])  # Temporary runner to access method
+                            X_smooth_poly = runner._generate_polynomial_features(x_smooth.reshape(-1, 1), degree)
+                            
                             if is_sklearn_wrapper:
                                 # Use the underlying sklearn model for prediction
                                 y_pred_smooth = model.model.predict(X_smooth_poly)
@@ -451,9 +454,11 @@ class VisualizationData:
                             y_pred_smooth = model.predict(X_smooth_poly)
                             y_pred_smooth = self._ensure_numpy_array(y_pred_smooth)
                         else:
-                            X_smooth_poly = self._generate_polynomial_features_for_plot(
-                                x_smooth.reshape(-1, 1), degree, self.X
-                            )
+                            # Use the same polynomial feature generation as the engine
+                            from utils.run_regression import RegressionRun
+                            runner = RegressionRun(1, [], [])  # Temporary runner to access method
+                            X_smooth_poly = runner._generate_polynomial_features(x_smooth.reshape(-1, 1), degree)
+                            
                             if is_sklearn_wrapper and hasattr(model, 'model'):
                                 y_pred_smooth = model.model.predict(X_smooth_poly)
                             else:

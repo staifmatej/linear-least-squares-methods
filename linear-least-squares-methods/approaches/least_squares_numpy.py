@@ -4,6 +4,11 @@ import warnings
 import numpy as np
 from sklearn.linear_model import Lasso, ElasticNet
 
+# Suppress common warnings
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+warnings.filterwarnings('ignore', message='Objective did not converge')
+warnings.filterwarnings('ignore', message='FigureCanvasAgg is non-interactive')
+
 # Global constants used for bold text and red warning messages.
 S_BOLD = "\033[1m"
 E_BOLD = "\033[0m"
@@ -24,7 +29,7 @@ class LeastSquares:
         self.type_regression = type_regression
         self.alpha = 1.0  # Default alpha for Ridge/Lasso/ElasticNet
         self.l1_ratio = 0.5  # Default l1_ratio for ElasticNet
-        self.max_iter = 5000
+        self.max_iter = 50000
         self.tol = 1e-4
         self.condition_number = None  # Store condition number for printing
 
@@ -152,6 +157,8 @@ class LeastSquares:
 
     def _coordinate_descent_lasso(self, X, Y):
         """Lasso coordinate descent implementation using sklearn."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
         X_features = X[:, 1:]  # Without intercept
 
         # Use Lasso model directly
@@ -324,7 +331,21 @@ class RidgeRegression(LeastSquares):
         if x.ndim == 1:
             x = x.reshape(-1, 1)
 
-        X_with_intercept = np.column_stack([np.ones(len(x)), x])
+        # Check if this is polynomial regression (has degree attribute)
+        if hasattr(self, 'degree') and self.degree > 1:
+            # Check if we already have polynomial features (from visualization)
+            if x.shape[1] == self.degree:
+                # Already polynomial features, just add intercept
+                X_with_intercept = np.column_stack([np.ones(x.shape[0]), x])
+            else:
+                # Generate polynomial features for prediction
+                from utils.run_regression import RegressionRun
+                runner = RegressionRun(1, [], [])  # Temporary runner to access method
+                X_poly = runner._generate_polynomial_features(x, self.degree)
+                X_with_intercept = np.column_stack([np.ones(x.shape[0]), X_poly])
+        else:
+            # Regular linear features
+            X_with_intercept = np.column_stack([np.ones(len(x)), x])
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", RuntimeWarning)
@@ -340,7 +361,7 @@ class RidgeRegression(LeastSquares):
 class LassoRegression(LeastSquares):
     """Lasso regression using CoordinateDescent infrastructure"""
 
-    def __init__(self, alpha=1.0, max_iter=5000, tol=1e-4):
+    def __init__(self, alpha=1.0, max_iter=50000, tol=1e-4):
         super().__init__(type_regression="LassoRegression")
         self.alpha = alpha
         self.max_iter = max_iter
@@ -375,6 +396,15 @@ class LassoRegression(LeastSquares):
         x = np.array(x)
         if x.ndim == 1:
             x = x.reshape(-1, 1)
+        
+        # Check if this is polynomial regression (has degree attribute)
+        if hasattr(self, 'degree') and self.degree > 1:
+            # Check if we already have polynomial features (from visualization)
+            if x.shape[1] != self.degree:
+                # Generate polynomial features for prediction
+                from utils.run_regression import RegressionRun
+                runner = RegressionRun(1, [], [])  # Temporary runner to access method
+                x = runner._generate_polynomial_features(x, self.degree)
             
         return self.model.predict(x)
 
@@ -382,7 +412,7 @@ class LassoRegression(LeastSquares):
 class ElasticNetRegression(LeastSquares):
     """Elastic Net regression using CoordinateDescent infrastructure"""
 
-    def __init__(self, alpha=1.0, l1_ratio=0.5, max_iter=5000, tol=1e-4):
+    def __init__(self, alpha=1.0, l1_ratio=0.5, max_iter=50000, tol=1e-4):
         super().__init__(type_regression="ElasticNetRegression")
         self.alpha = alpha
         self.l1_ratio = l1_ratio
@@ -418,5 +448,14 @@ class ElasticNetRegression(LeastSquares):
         x = np.array(x)
         if x.ndim == 1:
             x = x.reshape(-1, 1)
+        
+        # Check if this is polynomial regression (has degree attribute)
+        if hasattr(self, 'degree') and self.degree > 1:
+            # Check if we already have polynomial features (from visualization)
+            if x.shape[1] != self.degree:
+                # Generate polynomial features for prediction
+                from utils.run_regression import RegressionRun
+                runner = RegressionRun(1, [], [])  # Temporary runner to access method
+                x = runner._generate_polynomial_features(x, self.degree)
             
         return self.model.predict(x)

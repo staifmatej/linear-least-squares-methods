@@ -9,6 +9,10 @@ import shutil
 import gc
 from tabulate import tabulate
 
+# Suppress OpenMP warnings from Numba (especially in Jupyter)
+os.environ['OMP_DISPLAY_ENV'] = 'FALSE'
+os.environ['OMP_NESTED'] = 'FALSE'
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.run_regression import RegressionRun
 from utils.after_regression_handler import print_press_enter_to_continue

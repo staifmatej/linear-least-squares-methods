@@ -225,12 +225,18 @@ class RegressionRun:
                 # Pro vysoké stupně použít menší alpha
                 alpha = 0.001 if degree <= 5 else 0.00001
                 model = least_squares_numpy.RidgeRegression(alpha=alpha)
+                # Store degree for polynomial prediction
+                model.degree = degree
             elif regression_type == 3:
                 alpha = 0.0001 if degree <= 5 else 0.000001
                 model = least_squares_numpy.LassoRegression(alpha=alpha)
+                # Store degree for polynomial prediction
+                model.degree = degree
             elif regression_type == 4:
                 alpha = 0.0001 if degree <= 5 else 0.000001
                 model = least_squares_numpy.ElasticNetRegression(alpha=alpha, l1_ratio=0.5)
+                # Store degree for polynomial prediction
+                model.degree = degree
 
             model.fit(X_poly, y)
             coeffs = model.coefficients
@@ -332,43 +338,55 @@ class RegressionRun:
                 # Pro vysoké stupně použít menší alpha
                 alpha = 0.001 if degree <= 5 else 0.00001
                 model = least_squares_numba.RidgeRegression(alpha=alpha)
-                X_reshaped = X.reshape(-1, 1) if hasattr(X, 'reshape') else [[x] for x in X]
-                model.fit(X_reshaped, y)
-                coeffs = model.coefficients if hasattr(model, 'coefficients') else [model.intercept] + list(model.coefficients) if hasattr(model, 'intercept') else []
+                
+                # Create polynomial features (consistent with NumPy)
+                X_poly_numpy = self._generate_polynomial_features(X, degree)
+                # Convert NumPy array to list of lists for Numba engine
+                X_poly = X_poly_numpy.tolist()
+                model.fit(X_poly, y)
+                coeffs = model.coefficients
                 return {
                     'coefficients': coeffs,
                     'status': 'success',
                     'engine': 'numba',
                     'model': model,
-                    'degree': 1
+                    'degree': degree
                 }
 
             elif regression_type == 3:  # Lasso regression
                 alpha = 0.0001 if degree <= 5 else 0.000001
                 model = least_squares_numba.LassoRegression(alpha=alpha)
-                X_reshaped = X.reshape(-1, 1) if hasattr(X, 'reshape') else [[x] for x in X]
-                model.fit(X_reshaped, y)
+                
+                # Create polynomial features (consistent with NumPy)
+                X_poly_numpy = self._generate_polynomial_features(X, degree)
+                # Convert NumPy array to list of lists for Numba engine
+                X_poly = X_poly_numpy.tolist()
+                model.fit(X_poly, y)
                 coeffs = model.coefficients
                 return {
                     'coefficients': coeffs,
                     'status': 'success',
                     'engine': 'numba',
                     'model': model,
-                    'degree': 1
+                    'degree': degree
                 }
 
             elif regression_type == 4:  # ElasticNet regression
                 alpha = 0.0001 if degree <= 5 else 0.000001
                 model = least_squares_numba.ElasticNetRegression(alpha=alpha, l1_ratio=0.5)
-                X_reshaped = X.reshape(-1, 1) if hasattr(X, 'reshape') else [[x] for x in X]
-                model.fit(X_reshaped, y)
+                
+                # Create polynomial features (consistent with NumPy)
+                X_poly_numpy = self._generate_polynomial_features(X, degree)
+                # Convert NumPy array to list of lists for Numba engine
+                X_poly = X_poly_numpy.tolist()
+                model.fit(X_poly, y)
                 coeffs = model.coefficients
                 return {
                     'coefficients': coeffs,
                     'status': 'success',
                     'engine': 'numba',
                     'model': model,
-                    'degree': 1
+                    'degree': degree
                 }
 
         else:
@@ -463,8 +481,10 @@ class RegressionRun:
                 }
 
             # Ridge, Lasso, ElasticNet for polynomials
-            # Create polynomial features manually for pure Python
-            X_poly = self._generate_polynomial_features_pure(X, degree)
+            # Create polynomial features (consistent with NumPy)
+            X_poly_numpy = self._generate_polynomial_features(X, degree)
+            # Convert NumPy array to list of lists for Pure engine
+            X_poly = X_poly_numpy.tolist()
 
             if regression_type == 2:  # Ridge
                 # Pro vysoké stupně použít menší alpha
@@ -509,7 +529,7 @@ class RegressionRun:
         # For Ridge, Lasso, ElasticNet on special functions
         X_transformed, y_transformed = self._transform_features_for_function_pure(X, y, function_type)
 
-        # Get model based on regression type
+        # Get model based on regression type (special functions use degree=1)
         if regression_type == 2:
             model = least_squares_pure.RidgeRegression(alpha=0.001)
         elif regression_type == 3:
@@ -550,6 +570,34 @@ class RegressionRun:
             for d in range(1, degree + 1):
                 # ODSTRANIT nebo ZMIRNIT škálování - žádné dodatečné škálování
                 feature = X_normalized[i] ** d  # Žádné dodatečné škálování
+                row.append(feature)
+            polynomial_features.append(row)
+        
+        return polynomial_features
+
+    def _generate_polynomial_features_numba(self, X, degree):
+        """Generate polynomial features for Numba engine (consistent with NumPy)."""
+        X_flat = X.flatten() if hasattr(X, 'flatten') else [item for sublist in X for item in sublist] if isinstance(X[0], list) else X
+        
+        # Use same normalization as NumPy for consistency
+        x_min = min(X_flat)
+        x_max = max(X_flat)
+        
+        # Apply normalization for degree > 3 (consistent with NumPy)
+        if degree > 3:
+            if x_max - x_min > 1e-10:
+                X_normalized = [2 * (x - x_min) / (x_max - x_min) - 1 for x in X_flat]
+            else:
+                X_normalized = X_flat
+        else:
+            X_normalized = X_flat
+        
+        # Create list of lists for polynomial features
+        polynomial_features = []
+        for i in range(len(X_flat)):
+            row = []
+            for d in range(1, degree + 1):
+                feature = X_normalized[i] ** d
                 row.append(feature)
             polynomial_features.append(row)
         

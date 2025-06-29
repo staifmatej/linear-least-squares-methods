@@ -6,8 +6,10 @@ import numpy as np
 from numba import njit, prange
 from sklearn.linear_model import Lasso, ElasticNet
 
-# Suppress sklearn convergence warnings globally
+# Suppress common warnings
+warnings.filterwarnings('ignore', category=DeprecationWarning)
 warnings.filterwarnings('ignore', message='Objective did not converge')
+warnings.filterwarnings('ignore', message='FigureCanvasAgg is non-interactive')
 
 # Global constants used for bold text and red warning messages.
 S_BOLD = "\033[1m"
@@ -181,7 +183,7 @@ def back_substitution_numba(R, b):
 
 
 @njit(parallel=True)
-def eigenvalues_power_method_numba(A, max_iter=10000):
+def eigenvalues_power_method_numba(A, max_iter=50000):
     """Approximate eigenvalues using power method with Numba."""
     n = len(A)
 
@@ -251,7 +253,7 @@ class LeastSquares:
         self.type_regression = type_regression
         self.alpha = 1.0  # Default alpha for Ridge/Lasso/ElasticNet
         self.l1_ratio = 0.5  # Default l1_ratio for ElasticNet
-        self.max_iter = 20000
+        self.max_iter = 50000
         self.tol = 1e-4
         self.condition_number = None  # Store condition number for printing
 
@@ -495,19 +497,28 @@ class LinearRegression:
             y = np.array(list(y))
 
         n = len(X)
+        
+        # Check for underdetermined system (more parameters than data points)
+        if n <= self.degree:
+            raise ValueError(f"Cannot fit polynomial of degree {self.degree} with {n} data points. "
+                           f"Need at least {self.degree + 1} data points.")
 
-        # Create design matrix (Vandermonde matrix)
-        # Each row is [1, x, x^2, ..., x^degree]
-        design_matrix = np.zeros((n, self.degree + 1))
-        for i in range(n):
-            for power in range(self.degree + 1):
-                design_matrix[i, power] = X[i] ** power
+        # Save range for normalization (consistent with NumPy)
+        self.x_min = X.min()
+        self.x_max = X.max()
+        
+        # Generate polynomial features (consistent with NumPy approach)
+        X_polynomial = self._generate_polynomial_features_consistent(X)
+        
+        # Add intercept column
+        X_with_intercept = np.ones((n, X_polynomial.shape[1] + 1))
+        X_with_intercept[:, 1:] = X_polynomial
 
         # Compute X^T * X using Numba
-        XtX = matrix_multiply_transpose_numba(design_matrix, design_matrix)
+        XtX = matrix_multiply_transpose_numba(X_with_intercept, X_with_intercept)
 
         # Compute X^T * y using Numba
-        Xty = matrix_vector_multiply_transpose_numba(design_matrix, y)
+        Xty = matrix_vector_multiply_transpose_numba(X_with_intercept, y)
 
         # Solve the normal equations using Numba
         self.coefficients = solve_linear_system_numba(XtX, Xty)
@@ -525,14 +536,44 @@ class LinearRegression:
         elif not isinstance(X, np.ndarray):
             X = np.array(list(X))
 
+        # Generate polynomial features consistent with training
+        X_polynomial = self._generate_polynomial_features_consistent(X)
+        
+        # Add intercept column
+        X_with_intercept = np.ones((len(X), X_polynomial.shape[1] + 1))
+        X_with_intercept[:, 1:] = X_polynomial
+        
+        # Predict using coefficients
         predictions = []
-        for x in X:
+        for i in range(len(X)):
             y_pred = 0
-            for power, coeff in enumerate(self.coefficients):
-                y_pred += coeff * (x ** power)
+            for j, coeff in enumerate(self.coefficients):
+                y_pred += coeff * X_with_intercept[i, j]
             predictions.append(y_pred)
 
         return predictions
+
+    def _generate_polynomial_features_consistent(self, x):
+        """Generate polynomial features consistent with NumPy approach."""
+        x = x.flatten()
+        
+        # Apply normalization for degree > 3 (consistent with NumPy)
+        if self.degree > 3:
+            # Normalize x to interval [-1, 1] for better numerical stability
+            if self.x_max - self.x_min > 1e-10:
+                x_normalized = 2 * (x - self.x_min) / (self.x_max - self.x_min) - 1
+            else:
+                x_normalized = x
+        else:
+            x_normalized = x
+        
+        # Generate polynomial features for degrees 1 to self.degree
+        polynomial_features = []
+        for d in range(1, self.degree + 1):
+            feature = x_normalized ** d
+            polynomial_features.append(feature)
+        
+        return np.column_stack(polynomial_features)
 
     # Matrix operations use numba functions directly
 
@@ -582,9 +623,9 @@ class RidgeRegression:
         # Solve the system using Numba
         coeffs = solve_linear_system_numba(XtX, Xty)
 
-        # Separate intercept and coefficients
+        # Store all coefficients including intercept (consistent with other engines)
         self.intercept = coeffs[0]
-        self.coefficients = coeffs[1:]  # Only the feature coefficients, not intercept
+        self.coefficients = coeffs  # All coefficients including intercept
 
         return self
 
@@ -603,13 +644,36 @@ class RidgeRegression:
         if X.ndim == 1:
             X = X.reshape(-1, 1)
 
-        predictions = []
-        for i in range(X.shape[0]):
-            y_pred = self.intercept if self.intercept is not None else 0
-            for j in range(X.shape[1]):
-                if j < len(self.coefficients):
-                    y_pred += self.coefficients[j] * X[i, j]
-            predictions.append(y_pred)
+        # Calculate expected number of features from coefficients
+        n_coeffs = len(self.coefficients)
+        expected_features = n_coeffs - 1  # subtract intercept
+        
+        if X.shape[1] == 1 and expected_features > 1:
+            # This is polynomial regression - generate polynomial features
+            degree = expected_features
+            from utils.run_regression import RegressionRun
+            runner = RegressionRun(1, [], [])  # Temporary runner to access method
+            X_poly_np = runner._generate_polynomial_features(X, degree)
+            X_poly = X_poly_np.tolist()
+            
+            # Add intercept column to polynomial features
+            predictions = []
+            for i in range(len(X_poly)):
+                y_pred = self.coefficients[0]  # intercept
+                for j in range(len(X_poly[i])):
+                    y_pred += self.coefficients[j + 1] * X_poly[i][j]
+                predictions.append(y_pred)
+        else:
+            # Regular linear prediction
+            X_with_intercept = np.ones((X.shape[0], X.shape[1] + 1))
+            X_with_intercept[:, 1:] = X
+            
+            predictions = []
+            for i in range(X.shape[0]):
+                y_pred = 0
+                for j in range(len(self.coefficients)):
+                    y_pred += self.coefficients[j] * X_with_intercept[i, j]
+                predictions.append(y_pred)
 
         return predictions
 
@@ -619,7 +683,7 @@ class RidgeRegression:
 class LassoRegression:
     """Lasso regression using sklearn (as allowed)."""
 
-    def __init__(self, alpha=1.0, max_iter=20000):
+    def __init__(self, alpha=1.0, max_iter=50000):
         self.alpha = alpha
         self.max_iter = max_iter
         self.model = Lasso(alpha=alpha, max_iter=max_iter, fit_intercept=True)
@@ -637,13 +701,34 @@ class LassoRegression:
 
     def predict(self, X):
         """Predict using the fitted lasso model."""
+        # Convert to numpy array
+        if hasattr(X, 'tolist'):
+            X = np.array(X)
+        elif not isinstance(X, np.ndarray):
+            X = np.array(X)
+
+        # Handle both 1D and 2D inputs
+        if X.ndim == 1:
+            X = X.reshape(-1, 1)
+        
+        # Calculate expected number of features from coefficients
+        n_coeffs = len(self.coefficients)
+        expected_features = n_coeffs - 1  # subtract intercept
+        
+        if X.shape[1] == 1 and expected_features > 1:
+            # This is polynomial regression - generate polynomial features
+            degree = expected_features
+            from utils.run_regression import RegressionRun
+            runner = RegressionRun(1, [], [])  # Temporary runner to access method
+            X = runner._generate_polynomial_features(X, degree)
+        
         return self.model.predict(X)
 
 
 class ElasticNetRegression:
     """Elastic Net regression using sklearn (as allowed)."""
 
-    def __init__(self, alpha=1.0, l1_ratio=0.5, max_iter=20000):
+    def __init__(self, alpha=1.0, l1_ratio=0.5, max_iter=50000):
         self.alpha = alpha
         self.l1_ratio = l1_ratio
         self.max_iter = max_iter
@@ -663,4 +748,25 @@ class ElasticNetRegression:
 
     def predict(self, X):
         """Predict using the fitted elastic net model."""
+        # Convert to numpy array
+        if hasattr(X, 'tolist'):
+            X = np.array(X)
+        elif not isinstance(X, np.ndarray):
+            X = np.array(X)
+
+        # Handle both 1D and 2D inputs
+        if X.ndim == 1:
+            X = X.reshape(-1, 1)
+        
+        # Calculate expected number of features from coefficients
+        n_coeffs = len(self.coefficients)
+        expected_features = n_coeffs - 1  # subtract intercept
+        
+        if X.shape[1] == 1 and expected_features > 1:
+            # This is polynomial regression - generate polynomial features
+            degree = expected_features
+            from utils.run_regression import RegressionRun
+            runner = RegressionRun(1, [], [])  # Temporary runner to access method
+            X = runner._generate_polynomial_features(X, degree)
+        
         return self.model.predict(X)
