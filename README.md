@@ -4,12 +4,11 @@ TODO: PRED UKONCENIM PROJEKTU MUSIM ODEBRAT Z .gitignore CLAUDE CODE SOUBORY, AB
 
 # Linear Least Squares Methods
 
-This project explores the implementation of the **Least Squares Method** for curve fitting using four different approaches:
+This project explores the implementation of the **Least Squares Method** for curve fitting using three different approaches:
 
 1. Python using NumPy  
 2. Python using raw `for` loops  
 3. Python with `for` loops accelerated using Numba  
-4. C++ implementation  
 
 ## Project Goals
 
