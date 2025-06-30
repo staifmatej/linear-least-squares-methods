@@ -2,7 +2,6 @@
 
 import warnings
 import math
-import numpy as np
 from sklearn.linear_model import Lasso, ElasticNet
 
 # Suppress common warnings
@@ -21,32 +20,44 @@ def fit_error_handling(coefficients):
         raise ValueError("Model not fitted yet. Call fit() first.")
 
 
+def create_zero_matrix(rows, cols):
+    """Create a matrix filled with zeros."""
+    return [[0.0 for _ in range(cols)] for _ in range(rows)]
+
+def create_zero_vector(size):
+    """Create a vector filled with zeros."""
+    return [0.0 for _ in range(size)]
+
+def create_ones_vector(size):
+    """Create a vector filled with ones."""
+    return [1.0 for _ in range(size)]
+
 def matrix_multiply_transpose_pure(A, B):
-    """Compute A^T * B using Pure Python with parallel execution."""
+    """Compute A^T * B using Pure Python."""
     m = len(A)
     n = len(A[0]) if m > 0 else 0
     k = len(B[0]) if m > 0 else 0
 
-    result = np.zeros((n, k))
+    result = create_zero_matrix(n, k)
 
     for i in range(n):
         for j in range(k):
             for t in range(m):
-                result[i, j] += A[t, i] * B[t, j]
+                result[i][j] += A[t][i] * B[t][j]
 
     return result
 
 
 def matrix_vector_multiply_transpose_pure(A, b):
-    """Compute A^T * b using Pure Python with parallel execution."""
+    """Compute A^T * b using Pure Python."""
     m = len(A)
     n = len(A[0]) if m > 0 else 0
 
-    result = np.zeros(n)
+    result = create_zero_vector(n)
 
     for i in range(n):
         for j in range(m):
-            result[i] += A[j, i] * b[j]
+            result[i] += A[j][i] * b[j]
 
     return result
 
@@ -56,11 +67,11 @@ def matrix_vector_multiply_pure(A, v):
     m = len(A)
     n = len(A[0])
 
-    result = np.zeros(m)
+    result = create_zero_vector(m)
 
     for i in range(m):
         for j in range(n):
-            result[i] += A[i, j] * v[j]
+            result[i] += A[i][j] * v[j]
 
     return result
 
@@ -70,44 +81,44 @@ def solve_linear_system_pure(A, b):
     n = len(A)
 
     # Create augmented matrix
-    augmented = np.zeros((n, n + 1))
+    augmented = create_zero_matrix(n, n + 1)
     for i in range(n):
         for j in range(n):
-            augmented[i, j] = A[i, j]
-        augmented[i, n] = b[i]
+            augmented[i][j] = A[i][j]
+        augmented[i][n] = b[i]
 
     # Forward elimination with partial pivoting
     for i in range(n):
         # Find pivot
         max_row = i
         for k in range(i + 1, n):
-            if abs(augmented[k, i]) > abs(augmented[max_row, i]):
+            if abs(augmented[k][i]) > abs(augmented[max_row][i]):
                 max_row = k
 
         # Swap rows
         if max_row != i:
             for j in range(n + 1):
-                temp = augmented[i, j]
-                augmented[i, j] = augmented[max_row, j]
-                augmented[max_row, j] = temp
+                temp = augmented[i][j]
+                augmented[i][j] = augmented[max_row][j]
+                augmented[max_row][j] = temp
 
         # Check for zero pivot
-        if abs(augmented[i, i]) < 1e-10:
-            augmented[i, i] = 1e-10
+        if abs(augmented[i][i]) < 1e-10:
+            augmented[i][i] = 1e-10
 
         # Eliminate column
         for k in range(i + 1, n):
-            factor = augmented[k, i] / augmented[i, i]
+            factor = augmented[k][i] / augmented[i][i]
             for j in range(i, n + 1):
-                augmented[k, j] -= factor * augmented[i, j]
+                augmented[k][j] -= factor * augmented[i][j]
 
     # Back substitution
-    x = np.zeros(n)
+    x = create_zero_vector(n)
     for i in range(n - 1, -1, -1):
-        x[i] = augmented[i, n]
+        x[i] = augmented[i][n]
         for j in range(i + 1, n):
-            x[i] -= augmented[i, j] * x[j]
-        x[i] /= augmented[i, i]
+            x[i] -= augmented[i][j] * x[j]
+        x[i] /= augmented[i][i]
 
     return x
 
@@ -118,39 +129,39 @@ def qr_decomposition_pure(A):
     n = len(A[0])
 
     # Initialize Q and R
-    Q = np.zeros((m, n))
-    R = np.zeros((n, n))
+    Q = create_zero_matrix(m, n)
+    R = create_zero_matrix(n, n)
 
     # Gram-Schmidt process
     for j in range(n):
         # Get column j of A
-        v = np.zeros(m)
+        v = create_zero_vector(m)
         for i in range(m):
-            v[i] = A[i, j]
+            v[i] = A[i][j]
 
         # Orthogonalize against previous columns
         for i in range(j):
             # R[i][j] = Q[:, i]^T * A[:, j]
-            R[i, j] = 0.0
+            R[i][j] = 0.0
             for k in range(m):
-                R[i, j] += Q[k, i] * A[k, j]
+                R[i][j] += Q[k][i] * A[k][j]
             # v = v - R[i][j] * Q[:, i]
             for k in range(m):
-                v[k] -= R[i, j] * Q[k, i]
+                v[k] -= R[i][j] * Q[k][i]
 
         # Normalize
-        R[j, j] = 0.0
+        R[j][j] = 0.0
         for k in range(m):
-            R[j, j] += v[k] * v[k]
-        R[j, j] = math.sqrt(R[j, j])
+            R[j][j] += v[k] * v[k]
+        R[j][j] = math.sqrt(R[j][j])
 
-        if R[j, j] > 1e-10:
+        if R[j][j] > 1e-10:
             for k in range(m):
-                Q[k, j] = v[k] / R[j, j]
+                Q[k][j] = v[k] / R[j][j]
         else:
             # Handle zero column
             for k in range(m):
-                Q[k, j] = 0.0
+                Q[k][j] = 0.0
 
     return Q, R
 
@@ -158,14 +169,14 @@ def qr_decomposition_pure(A):
 def back_substitution_pure(R, b):
     """Solve Rx = b where R is upper triangular using Pure Python."""
     n = len(R)
-    x = np.zeros(n)
+    x = create_zero_vector(n)
 
     for i in range(n - 1, -1, -1):
         x[i] = b[i]
         for j in range(i + 1, n):
-            x[i] -= R[i, j] * x[j]
-        if abs(R[i, i]) > 1e-10:
-            x[i] /= R[i, i]
+            x[i] -= R[i][j] * x[j]
+        if abs(R[i][i]) > 1e-10:
+            x[i] /= R[i][i]
         else:
             x[i] = 0.0
 
@@ -177,7 +188,7 @@ def eigenvalues_power_method_pure(A, max_iter=50000):
     n = len(A)
 
     # Just get largest eigenvalue for now
-    v = np.ones(n)
+    v = create_ones_vector(n)
     for _ in range(max_iter):
         v_new = matrix_vector_multiply_pure(A, v)
         norm = 0.0
@@ -195,26 +206,26 @@ def eigenvalues_power_method_pure(A, max_iter=50000):
         lambda_max += v[i] * Av[i]
 
     # Return both max and rough estimate of min
-    return np.array([lambda_max, lambda_max / 1000.0])
+    return [lambda_max, lambda_max / 1000.0]
 
 
-def generate_polynomial_features_numba(x, degree, x_min, x_max, normalize):
-    """Generate polynomial features with Numba acceleration."""
+def generate_polynomial_features_pure(x, degree, x_min, x_max, normalize):
+    """Generate polynomial features with Pure Python."""
     n = len(x)
 
     if normalize and degree > 3:
         # Normalize x to interval [-1, 1] for better numerical stability
         if x_max - x_min > 1e-10:
-            x_normalized = np.zeros(n)
-            for i in prange(n):
+            x_normalized = create_zero_vector(n)
+            for i in range(n):
                 x_normalized[i] = 2 * (x[i] - x_min) / (x_max - x_min) - 1
         else:
-            x_normalized = x.copy()
+            x_normalized = x[:]
     else:
-        x_normalized = x.copy()
+        x_normalized = x[:]
 
-    polynomial_features = np.zeros((n, degree))
-    for i in prange(n):
+    polynomial_features = create_zero_matrix(n, degree)
+    for i in range(n):
         for d in range(1, degree + 1):
             # For very high degrees, scale down the features
             if d > 5:
@@ -229,7 +240,7 @@ def generate_polynomial_features_numba(x, degree, x_min, x_max, normalize):
                 sign = 1 if x_normalized[i] >= 0 else -1
                 feature = sign * (abs(x_normalized[i]) ** (d / 2.0))
 
-            polynomial_features[i, d - 1] = feature
+            polynomial_features[i][d - 1] = feature
 
     return polynomial_features
 
@@ -257,25 +268,30 @@ class LeastSquares:
             Format: list - one-dimensional
         return: w = coefficient vector [w₀, w₁, w₂, ..., wₚ]
         """
-        # Convert to numpy arrays for Numba
+        # Convert to pure Python lists
         if hasattr(X, 'tolist'):
-            X = np.array(X)
-        else:
-            X = np.array(X)
+            X = X.tolist()
+        elif not isinstance(X, list):
+            X = list(X)
 
         if hasattr(Y, 'tolist'):
-            Y = np.array(Y)
-        else:
-            Y = np.array(Y)
+            Y = Y.tolist()
+        elif not isinstance(Y, list):
+            Y = list(Y)
 
         # Handle 1D input
-        if X.ndim == 1:
-            X = X.reshape(-1, 1)
+        if not isinstance(X[0], list):
+            X = [[x] for x in X]
 
         # Add column of ones for intercept
         n_samples = len(Y)
-        X_with_intercept = np.ones((n_samples, X.shape[1] + 1))
-        X_with_intercept[:, 1:] = X
+        n_features = len(X[0])
+        X_with_intercept = create_zero_matrix(n_samples, n_features + 1)
+        
+        for i in range(n_samples):
+            X_with_intercept[i][0] = 1.0  # intercept column
+            for j in range(n_features):
+                X_with_intercept[i][j + 1] = X[i][j]
 
         n_rows = len(X_with_intercept)
         n_cols = len(X_with_intercept[0])
@@ -317,7 +333,7 @@ class LeastSquares:
         else:
             w = self.qr_decomposition(X_with_intercept, Y)
 
-        return w.tolist()  # Convert back to list for compatibility
+        return w  # Already a list
 
     def normal_equations(self, X, Y):
         """Compute LeastSquares coefficients using normal equations method."""
@@ -360,17 +376,20 @@ class LeastSquares:
             sqrt_alpha = math.sqrt(self.alpha)
 
             # Create extended matrix for Ridge
-            X_extended = np.zeros((n_samples + n_features, n_features))
+            X_extended = create_zero_matrix(n_samples + n_features, n_features)
             # Original X
-            X_extended[:n_samples, :] = X
+            for i in range(n_samples):
+                for j in range(n_features):
+                    X_extended[i][j] = X[i][j]
             # Regularization rows
             for i in range(n_features):
                 if i > 0:  # Skip intercept
-                    X_extended[n_samples + i, i] = sqrt_alpha
+                    X_extended[n_samples + i][i] = sqrt_alpha
 
             # Extended Y
-            Y_extended = np.zeros(n_samples + n_features)
-            Y_extended[:n_samples] = Y
+            Y_extended = create_zero_vector(n_samples + n_features)
+            for i in range(n_samples):
+                Y_extended[i] = Y[i]
 
             # QR decomposition using Pure Python
             Q, R = qr_decomposition_pure(X_extended)
@@ -387,7 +406,7 @@ class LeastSquares:
     def _coordinate_descent_lasso(self, X, Y):
         """Lasso coordinate descent implementation using sklearn."""
         # Remove intercept column for sklearn
-        X_features = X[:, 1:]
+        X_features = [row[1:] for row in X]
 
         # Use Lasso model directly
         lasso = Lasso(alpha=self.alpha, max_iter=self.max_iter,
@@ -401,7 +420,7 @@ class LeastSquares:
     def _coordinate_descent_elasticnet(self, X, Y):
         """ElasticNet coordinate descent implementation using sklearn."""
         # Remove intercept column for sklearn
-        X_features = X[:, 1:]
+        X_features = [row[1:] for row in X]
 
         # Use ElasticNet model directly
         enet = ElasticNet(alpha=self.alpha, l1_ratio=self.l1_ratio,
@@ -431,7 +450,7 @@ class LeastSquares:
     def _condition_number(self, A):
         """Calculate condition number of matrix A using eigenvalues."""
         try:
-            eigenvalues = eigenvalues_power_method_pure(np.array(A))
+            eigenvalues = eigenvalues_power_method_pure(A)
             if len(eigenvalues) == 0:
                 return 1e20
 
@@ -451,11 +470,11 @@ class LeastSquares:
         """Solve using pseudo-inverse (simplified implementation)."""
         # This is a simplified version - just add small diagonal for stability
         n = len(A)
-        A_reg = A.copy()
+        A_reg = [row[:] for row in A]  # Deep copy
 
         # Add small value to diagonal
         for i in range(n):
-            A_reg[i, i] += 1e-10
+            A_reg[i][i] += 1e-10
 
         return solve_linear_system_pure(A_reg, b)
 
@@ -473,16 +492,16 @@ class LinearRegression:
 
     def fit(self, X, y):
         """Fit polynomial regression model using normal equations."""
-        # Convert inputs to numpy arrays
+        # Convert inputs to pure Python lists
         if hasattr(X, 'tolist'):
-            X = np.array(X)
-        elif not isinstance(X, np.ndarray):
-            X = np.array(list(X))
+            X = X.tolist()
+        elif not isinstance(X, list):
+            X = list(X)
 
         if hasattr(y, 'tolist'):
-            y = np.array(y)
-        elif not isinstance(y, np.ndarray):
-            y = np.array(list(y))
+            y = y.tolist()
+        elif not isinstance(y, list):
+            y = list(y)
 
         n = len(X)
         
@@ -491,16 +510,20 @@ class LinearRegression:
             raise ValueError(f"Cannot fit polynomial of degree {self.degree} with {n} data points. "
                            f"Need at least {self.degree + 1} data points.")
 
-        # Save range for normalization (consistent with NumPy)
-        self.x_min = X.min()
-        self.x_max = X.max()
+        # Save range for normalization
+        self.x_min = min(X)
+        self.x_max = max(X)
         
         # Generate polynomial features (consistent with NumPy approach)
         X_polynomial = self._generate_polynomial_features_consistent(X)
         
         # Add intercept column
-        X_with_intercept = np.ones((n, X_polynomial.shape[1] + 1))
-        X_with_intercept[:, 1:] = X_polynomial
+        n_features = len(X_polynomial[0])
+        X_with_intercept = create_zero_matrix(n, n_features + 1)
+        for i in range(n):
+            X_with_intercept[i][0] = 1.0  # intercept
+            for j in range(n_features):
+                X_with_intercept[i][j + 1] = X_polynomial[i][j]
 
         # Compute X^T * X using Pure Python
         XtX = matrix_multiply_transpose_pure(X_with_intercept, X_with_intercept)
@@ -518,50 +541,57 @@ class LinearRegression:
         if self.coefficients is None:
             raise ValueError("Model must be fitted before prediction")
 
-        # Convert to numpy array
+        # Convert to pure Python list
         if hasattr(X, 'tolist'):
-            X = np.array(X)
-        elif not isinstance(X, np.ndarray):
-            X = np.array(list(X))
+            X = X.tolist()
+        elif not isinstance(X, list):
+            X = list(X)
 
         # Generate polynomial features consistent with training
         X_polynomial = self._generate_polynomial_features_consistent(X)
         
         # Add intercept column
-        X_with_intercept = np.ones((len(X), X_polynomial.shape[1] + 1))
-        X_with_intercept[:, 1:] = X_polynomial
+        n_features = len(X_polynomial[0])
+        X_with_intercept = create_zero_matrix(len(X), n_features + 1)
+        for i in range(len(X)):
+            X_with_intercept[i][0] = 1.0  # intercept
+            for j in range(n_features):
+                X_with_intercept[i][j + 1] = X_polynomial[i][j]
         
         # Predict using coefficients
         predictions = []
         for i in range(len(X)):
             y_pred = 0
             for j, coeff in enumerate(self.coefficients):
-                y_pred += coeff * X_with_intercept[i, j]
+                y_pred += coeff * X_with_intercept[i][j]
             predictions.append(y_pred)
 
         return predictions
 
-    def _generate_polynomial_features_consistent(self, x):
+    def _generate_polynomial_features(self, x):
         """Generate polynomial features consistent with NumPy approach."""
-        x = x.flatten()
-        
-        # Apply normalization for degree > 3 (consistent with NumPy)
+        # Apply normalization for degree > 3
         if self.degree > 3:
             # Normalize x to interval [-1, 1] for better numerical stability
             if self.x_max - self.x_min > 1e-10:
-                x_normalized = 2 * (x - self.x_min) / (self.x_max - self.x_min) - 1
+                x_normalized = [2 * (xi - self.x_min) / (self.x_max - self.x_min) - 1 for xi in x]
             else:
-                x_normalized = x
+                x_normalized = x[:]
         else:
-            x_normalized = x
+            x_normalized = x[:]
         
         # Generate polynomial features for degrees 1 to self.degree
-        polynomial_features = []
-        for d in range(1, self.degree + 1):
-            feature = x_normalized ** d
-            polynomial_features.append(feature)
+        n = len(x)
+        polynomial_features = create_zero_matrix(n, self.degree)
+        for i in range(n):
+            for d in range(1, self.degree + 1):
+                polynomial_features[i][d - 1] = x_normalized[i] ** d
         
-        return np.column_stack(polynomial_features)
+        return polynomial_features
+    
+    def _generate_polynomial_features_consistent(self, x):
+        """Generate polynomial features consistent with NumPy approach."""
+        return self._generate_polynomial_features(x)
 
     # Matrix operations use pure python functions directly
 
@@ -576,34 +606,37 @@ class RidgeRegression:
 
     def fit(self, X, y):
         """Fit ridge regression model."""
-        # Convert inputs to numpy arrays
+        # Convert inputs to pure Python lists
         if hasattr(X, 'tolist'):
-            X = np.array(X)
-        elif not isinstance(X, np.ndarray):
-            X = np.array(X)
+            X = X.tolist()
+        elif not isinstance(X, list):
+            X = list(X)
 
         if hasattr(y, 'tolist'):
-            y = np.array(y)
-        elif not isinstance(y, np.ndarray):
-            y = np.array(y)
+            y = y.tolist()
+        elif not isinstance(y, list):
+            y = list(y)
 
         # Handle both 1D and 2D inputs
-        if X.ndim == 1:
-            X = X.reshape(-1, 1)
+        if not isinstance(X[0], list):
+            X = [[x] for x in X]
 
         n_samples = len(X)
-        n_features = X.shape[1]
+        n_features = len(X[0])
 
         # Add intercept column (column of ones)
-        X_with_intercept = np.ones((n_samples, n_features + 1))
-        X_with_intercept[:, 1:] = X
+        X_with_intercept = create_zero_matrix(n_samples, n_features + 1)
+        for i in range(n_samples):
+            X_with_intercept[i][0] = 1.0  # intercept
+            for j in range(n_features):
+                X_with_intercept[i][j + 1] = X[i][j]
 
         # Compute X^T * X using Pure Python
         XtX = matrix_multiply_transpose_pure(X_with_intercept, X_with_intercept)
 
         # Add ridge penalty to diagonal (except first element for intercept)
         for i in range(1, len(XtX)):
-            XtX[i, i] += self.alpha
+            XtX[i][i] += self.alpha
 
         # Compute X^T * y using Pure Python
         Xty = matrix_vector_multiply_transpose_pure(X_with_intercept, y)
@@ -622,27 +655,27 @@ class RidgeRegression:
         if self.coefficients is None:
             raise ValueError("Model must be fitted before prediction")
 
-        # Convert to numpy array
+        # Convert to pure Python list
         if hasattr(X, 'tolist'):
-            X = np.array(X)
-        elif not isinstance(X, np.ndarray):
-            X = np.array(X)
+            X = X.tolist()
+        elif not isinstance(X, list):
+            X = list(X)
 
         # Handle both 1D and 2D inputs
-        if X.ndim == 1:
-            X = X.reshape(-1, 1)
+        if not isinstance(X[0], list):
+            X = [[x] for x in X]
 
         # Calculate expected number of features from coefficients
         n_coeffs = len(self.coefficients)
         expected_features = n_coeffs - 1  # subtract intercept
         
-        if X.shape[1] == 1 and expected_features > 1:
+        if len(X[0]) == 1 and expected_features > 1:
             # This is polynomial regression - generate polynomial features
             degree = expected_features
-            from utils.run_regression import RegressionRun
-            runner = RegressionRun(1, [], [])  # Temporary runner to access method
-            X_poly_np = runner._generate_polynomial_features(X, degree)
-            X_poly = X_poly_np.tolist()
+            x_flat = [row[0] for row in X]
+            x_min = min(x_flat)
+            x_max = max(x_flat)
+            X_poly = generate_polynomial_features_pure(x_flat, degree, x_min, x_max, degree > 3)
             
             # Add intercept column to polynomial features
             predictions = []
@@ -654,11 +687,11 @@ class RidgeRegression:
         else:
             # Regular linear prediction
             predictions = []
-            for i in range(X.shape[0]):
+            for i in range(len(X)):
                 y_pred = self.coefficients[0] if len(self.coefficients) > 0 else 0  # intercept
-                for j in range(X.shape[1]):
+                for j in range(len(X[i])):
                     if j + 1 < len(self.coefficients):  # +1 because first coeff is intercept
-                        y_pred += self.coefficients[j + 1] * X[i, j]
+                        y_pred += self.coefficients[j + 1] * X[i][j]
                 predictions.append(y_pred)
 
         return predictions
@@ -687,26 +720,32 @@ class LassoRegression:
 
     def predict(self, X):
         """Predict using the fitted lasso model."""
-        # Convert to numpy array
+        # Convert to pure Python list first for processing
         if hasattr(X, 'tolist'):
-            X = np.array(X)
-        elif not isinstance(X, np.ndarray):
-            X = np.array(X)
+            X_list = X.tolist()
+        elif not isinstance(X, list):
+            X_list = list(X)
+        else:
+            X_list = X
 
         # Handle both 1D and 2D inputs
-        if X.ndim == 1:
-            X = X.reshape(-1, 1)
+        if not isinstance(X_list[0], list):
+            X_list = [[x] for x in X_list]
         
         # Calculate expected number of features from coefficients
         n_coeffs = len(self.coefficients)
         expected_features = n_coeffs - 1  # subtract intercept
         
-        if X.shape[1] == 1 and expected_features > 1:
+        if len(X_list[0]) == 1 and expected_features > 1:
             # This is polynomial regression - generate polynomial features
             degree = expected_features
-            from utils.run_regression import RegressionRun
-            runner = RegressionRun(1, [], [])  # Temporary runner to access method
-            X = runner._generate_polynomial_features(X, degree)
+            x_flat = [row[0] for row in X_list]
+            x_min = min(x_flat)
+            x_max = max(x_flat)
+            X_poly = generate_polynomial_features_pure(x_flat, degree, x_min, x_max, degree > 3)
+            X = X_poly  # Use for sklearn prediction
+        else:
+            X = X_list
         
         return self.model.predict(X)
 
@@ -734,25 +773,31 @@ class ElasticNetRegression:
 
     def predict(self, X):
         """Predict using the fitted elastic net model."""
-        # Convert to numpy array
+        # Convert to pure Python list first for processing
         if hasattr(X, 'tolist'):
-            X = np.array(X)
-        elif not isinstance(X, np.ndarray):
-            X = np.array(X)
+            X_list = X.tolist()
+        elif not isinstance(X, list):
+            X_list = list(X)
+        else:
+            X_list = X
 
         # Handle both 1D and 2D inputs
-        if X.ndim == 1:
-            X = X.reshape(-1, 1)
+        if not isinstance(X_list[0], list):
+            X_list = [[x] for x in X_list]
         
         # Calculate expected number of features from coefficients
         n_coeffs = len(self.coefficients)
         expected_features = n_coeffs - 1  # subtract intercept
         
-        if X.shape[1] == 1 and expected_features > 1:
+        if len(X_list[0]) == 1 and expected_features > 1:
             # This is polynomial regression - generate polynomial features
             degree = expected_features
-            from utils.run_regression import RegressionRun
-            runner = RegressionRun(1, [], [])  # Temporary runner to access method
-            X = runner._generate_polynomial_features(X, degree)
+            x_flat = [row[0] for row in X_list]
+            x_min = min(x_flat)
+            x_max = max(x_flat)
+            X_poly = generate_polynomial_features_pure(x_flat, degree, x_min, x_max, degree > 3)
+            X = X_poly  # Use for sklearn prediction
+        else:
+            X = X_list
         
         return self.model.predict(X)
