@@ -392,6 +392,10 @@ class VisualizationData:
                 spine.set_edgecolor('#d0d0d0')
                 spine.set_linewidth(1.5)
 
+            # Plot original data with enhanced style - MISSING in individual plots!
+            ax.scatter(self.X.flatten(), self.y, alpha=0.9, s=60,
+                       c='#3498db', edgecolors='white', linewidth=1.5,
+                       label='Data Points', zorder=5)
 
             # Get predictions (same logic as main plot_results)
             model = result['model']

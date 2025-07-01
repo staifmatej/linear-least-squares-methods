@@ -5,7 +5,6 @@ import os
 from constants import S_RED, E_RED
 from utils import (
     DataLoader,
-    RegressionRun,
     VisualizationData,
     UserInputHandler,
     print_data_loaded,
@@ -14,6 +13,7 @@ from utils import (
     print_condition_numbers,
     print_coefficients,
 )
+from utils.run_regression import RegressionRun
 from utils.timer_regression_engines import run_performance_benchmark
 
 # Suppress OpenMP warnings before any imports (especially in Jupyter)

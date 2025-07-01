@@ -2,13 +2,14 @@
 
 import warnings
 import math
+from numba import njit
 from sklearn.linear_model import Lasso, ElasticNet
 from constants import S_RED, E_RED
 
 warnings.filterwarnings('ignore', message='Objective did not converge')
 
 # pylint: disable=duplicate-code
-# @njit  # Removed to avoid reflection issues
+@njit
 def fit_error_handling(coefficients):
     """fit error handling for Regression model."""
     if coefficients is None:
@@ -16,204 +17,331 @@ def fit_error_handling(coefficients):
 
 
 # pylint: disable=duplicate-code
-# @njit  # Removed to avoid reflection issues
-def create_zero_matrix(rows, cols):
-    """Create a matrix filled with zeros."""
+def zeros_2d(rows, cols):
+    """Create a 2D matrix filled with zeros - regular Python lists."""
     return [[0.0 for _ in range(cols)] for _ in range(rows)]
 
+def zeros_1d(size):
+    """Create a 1D array filled with zeros - regular Python list."""
+    return [0.0 for _ in range(size)]
+
+def create_zero_matrix(rows, cols):
+    """Create a matrix filled with zeros."""
+    return zeros_2d(rows, cols)
+
 # pylint: disable=duplicate-code
-# @njit  # Removed to avoid reflection issues
+@njit
 def create_zero_vector(size):
     """Create a vector filled with zeros."""
     return [0.0 for _ in range(size)]
 
 # pylint: disable=duplicate-code
-# @njit  # Removed to avoid reflection issues
+@njit
 def create_ones_vector(size):
     """Create a vector filled with ones."""
     return [1.0 for _ in range(size)]
 
 # pylint: disable=duplicate-code
-def matrix_multiply_transpose_numba(A, B):
-    """Compute A^T * B using manual implementation."""
-    m = len(A)
-    n = len(A[0]) if m > 0 else 0
-    k = len(B[0]) if m > 0 else 0
-
-    # Create result matrix using nested lists
-    result = [[0.0 for _ in range(k)] for _ in range(n)]
+@njit
+def _matrix_multiply_transpose_flat(A_flat, B_flat, m, n, k):
+    """@njit core function using flat arrays only."""
+    result_flat = [0.0 for _ in range(n * k)]
 
     for i in range(n):
         for j in range(k):
             for t in range(m):
-                result[i][j] += A[t][i] * B[t][j]
+                result_flat[i * k + j] += A_flat[t * n + i] * B_flat[t * k + j]
+
+    return result_flat
+
+def matrix_multiply_transpose_numba(A, B):
+    """Compute A^T * B using @njit core + wrapper."""
+    m = len(A)
+    n = len(A[0]) if m > 0 else 0
+    k = len(B[0]) if m > 0 else 0
+
+    # Convert A and B to flat arrays for @njit
+    A_flat = [0.0 for _ in range(m * n)]
+    B_flat = [0.0 for _ in range(m * k)]
+
+    for i in range(m):
+        for j in range(n):
+            A_flat[i * n + j] = A[i][j]
+
+    for i in range(m):
+        for j in range(k):
+            B_flat[i * k + j] = B[i][j]
+
+    # Use @njit core for speed
+    result_flat = _matrix_multiply_transpose_flat(A_flat, B_flat, m, n, k)
+
+    # Convert to nested list for compatibility
+    result = [[0.0 for _ in range(k)] for _ in range(n)]
+    for i in range(n):
+        for j in range(k):
+            result[i][j] = result_flat[i * k + j]
 
     return result
 
 # pylint: disable=duplicate-code
-def matrix_vector_multiply_transpose_numba(A, b):
-    """Compute A^T * b using manual implementation."""
-    m = len(A)
-    n = len(A[0]) if m > 0 else 0
-
+@njit
+def _matrix_vector_multiply_transpose_flat(A_flat, b, m, n):
+    """@njit core function using flat array."""
     result = [0.0 for _ in range(n)]
 
     for i in range(n):
         for j in range(m):
-            result[i] += A[j][i] * b[j]
+            result[i] += A_flat[j * n + i] * b[j]
 
     return result
 
-# pylint: disable=duplicate-code
-def matrix_vector_multiply_numba(A, v):
-    """Compute A * v using manual implementation."""
+def matrix_vector_multiply_transpose_numba(A, b):
+    """Compute A^T * b using @njit core + wrapper."""
     m = len(A)
-    n = len(A[0])
+    n = len(A[0]) if m > 0 else 0
 
+    # Convert A to flat array
+    A_flat = [0.0 for _ in range(m * n)]
+    for i in range(m):
+        for j in range(n):
+            A_flat[i * n + j] = A[i][j]
+
+    return _matrix_vector_multiply_transpose_flat(A_flat, b, m, n)
+
+# pylint: disable=duplicate-code
+@njit
+def _matrix_vector_multiply_flat(A_flat, v, m, n):
+    """@njit core function using flat array."""
     result = [0.0 for _ in range(m)]
 
     for i in range(m):
         for j in range(n):
-            result[i] += A[i][j] * v[j]
+            result[i] += A_flat[i * n + j] * v[j]
 
     return result
 
-# pylint: disable=duplicate-code
-def solve_linear_system_numba(A, b):
-    """Solve Ax = b using Gaussian elimination with partial pivoting."""
-    n = len(A)
+def matrix_vector_multiply_numba(A, v):
+    """Compute A * v using @njit core + wrapper."""
+    m = len(A)
+    n = len(A[0])
 
-    # Create augmented matrix
-    augmented = [[0.0 for _ in range(n + 1)] for _ in range(n)]
+    # Convert A to flat array
+    A_flat = [0.0 for _ in range(m * n)]
+    for i in range(m):
+        for j in range(n):
+            A_flat[i * n + j] = A[i][j]
+
+    return _matrix_vector_multiply_flat(A_flat, v, m, n)
+
+# pylint: disable=duplicate-code
+@njit
+def _solve_linear_system_flat(A_flat, b, n):
+    """@njit core function using flat arrays."""
+    # Create flat augmented matrix
+    augmented_flat = [0.0 for _ in range(n * (n + 1))]
+
+    # Copy A and b to augmented matrix
     for i in range(n):
         for j in range(n):
-            augmented[i][j] = A[i][j]
-        augmented[i][n] = b[i]
+            augmented_flat[i * (n + 1) + j] = A_flat[i * n + j]
+        augmented_flat[i * (n + 1) + n] = b[i]
 
     # Forward elimination with partial pivoting
     for i in range(n):
         # Find pivot
         max_row = i
         for k in range(i + 1, n):
-            if abs(augmented[k][i]) > abs(augmented[max_row][i]):
+            if abs(augmented_flat[k * (n + 1) + i]) > abs(augmented_flat[max_row * (n + 1) + i]):
                 max_row = k
 
         # Swap rows
         if max_row != i:
             for j in range(n + 1):
-                temp = augmented[i][j]
-                augmented[i][j] = augmented[max_row][j]
-                augmented[max_row][j] = temp
+                temp = augmented_flat[i * (n + 1) + j]
+                augmented_flat[i * (n + 1) + j] = augmented_flat[max_row * (n + 1) + j]
+                augmented_flat[max_row * (n + 1) + j] = temp
 
         # Check for zero pivot
-        if abs(augmented[i][i]) < 1e-10:
-            augmented[i][i] = 1e-10
+        if abs(augmented_flat[i * (n + 1) + i]) < 1e-10:
+            augmented_flat[i * (n + 1) + i] = 1e-10
 
         # Eliminate column
         for k in range(i + 1, n):
-            factor = augmented[k][i] / augmented[i][i]
+            factor = augmented_flat[k * (n + 1) + i] / augmented_flat[i * (n + 1) + i]
             for j in range(i, n + 1):
-                augmented[k][j] -= factor * augmented[i][j]
+                augmented_flat[k * (n + 1) + j] -= factor * augmented_flat[i * (n + 1) + j]
 
     # Back substitution
     x = [0.0 for _ in range(n)]
     for i in range(n - 1, -1, -1):
-        x[i] = augmented[i][n]
+        x[i] = augmented_flat[i * (n + 1) + n]
         for j in range(i + 1, n):
-            x[i] -= augmented[i][j] * x[j]
-        x[i] /= augmented[i][i]
+            x[i] -= augmented_flat[i * (n + 1) + j] * x[j]
+        x[i] /= augmented_flat[i * (n + 1) + i]
 
     return x
 
-# @njit  # Removed to avoid reflection issues
-def qr_decomposition_numba(A):
-    """QR decomposition using Gram-Schmidt orthogonalization with pure Python."""
-    m = len(A)
-    n = len(A[0])
+def solve_linear_system_numba(A, b):
+    """Solve Ax = b using @njit core + wrapper."""
+    n = len(A)
 
-    # Initialize Q and R
-    Q = [[0.0 for _ in range(n)] for _ in range(m)]
-    R = [[0.0 for _ in range(n)] for _ in range(n)]
+    # Convert A to flat array
+    A_flat = [0.0 for _ in range(n * n)]
+    for i in range(n):
+        for j in range(n):
+            A_flat[i * n + j] = A[i][j]
+
+    return _solve_linear_system_flat(A_flat, b, n)
+
+@njit
+def _qr_decomposition_flat(A_flat, m, n):
+    """@njit QR decomposition using flat arrays."""
+    # Initialize Q and R as flat arrays
+    Q_flat = [0.0 for _ in range(m * n)]
+    R_flat = [0.0 for _ in range(n * n)]
 
     # Gram-Schmidt process
     for j in range(n):
         # Get column j of A
         v = [0.0 for _ in range(m)]
         for i in range(m):
-            v[i] = A[i][j]
+            v[i] = A_flat[i * n + j]
 
         # Orthogonalize against previous columns
         for i in range(j):
             # R[i][j] = Q[:, i]^T * A[:, j]
-            R[i][j] = 0.0
+            R_ij = 0.0
             for k in range(m):
-                R[i][j] += Q[k][i] * A[k][j]
+                R_ij += Q_flat[k * n + i] * A_flat[k * n + j]
+            R_flat[i * n + j] = R_ij
+
             # v = v - R[i][j] * Q[:, i]
             for k in range(m):
-                v[k] -= R[i][j] * Q[k][i]
+                v[k] -= R_ij * Q_flat[k * n + i]
 
         # Normalize
-        R[j][j] = 0.0
+        R_jj = 0.0
         for k in range(m):
-            R[j][j] += v[k] * v[k]
-        R[j][j] = math.sqrt(R[j][j])
+            R_jj += v[k] * v[k]
+        R_jj = math.sqrt(R_jj)
+        R_flat[j * n + j] = R_jj
 
-        if R[j][j] > 1e-10:
+        if R_jj > 1e-10:
             for k in range(m):
-                Q[k][j] = v[k] / R[j][j]
+                Q_flat[k * n + j] = v[k] / R_jj
         else:
             # Handle zero column
             for k in range(m):
-                Q[k][j] = 0.0
+                Q_flat[k * n + j] = 0.0
+
+    return Q_flat, R_flat
+
+def qr_decomposition_numba(A):
+    """QR decomposition using @njit core + wrapper."""
+    m = len(A)
+    n = len(A[0])
+
+    # Convert A to flat array
+    A_flat = [0.0 for _ in range(m * n)]
+    for i in range(m):
+        for j in range(n):
+            A_flat[i * n + j] = A[i][j]
+
+    # Use @njit core
+    Q_flat, R_flat = _qr_decomposition_flat(A_flat, m, n)
+
+    # Convert back to nested lists
+    Q = [[0.0 for _ in range(n)] for _ in range(m)]
+    R = [[0.0 for _ in range(n)] for _ in range(n)]
+
+    for i in range(m):
+        for j in range(n):
+            Q[i][j] = Q_flat[i * n + j]
+
+    for i in range(n):
+        for j in range(n):
+            R[i][j] = R_flat[i * n + j]
 
     return Q, R
 
-# @njit  # Removed to avoid reflection issues
-def back_substitution_numba(R, b):
-    """Solve Rx = b where R is upper triangular using pure Python."""
-    n = len(R)
+@njit
+def _back_substitution_flat(R_flat, b, n):
+    """@njit back substitution using flat array."""
     x = [0.0 for _ in range(n)]
 
     for i in range(n - 1, -1, -1):
         x[i] = b[i]
         for j in range(i + 1, n):
-            x[i] -= R[i][j] * x[j]
-        if abs(R[i][i]) > 1e-10:
-            x[i] /= R[i][i]
+            x[i] -= R_flat[i * n + j] * x[j]
+        if abs(R_flat[i * n + i]) > 1e-10:
+            x[i] /= R_flat[i * n + i]
         else:
             x[i] = 0.0
 
     return x
 
-# @njit  # Removed to avoid reflection issues
-def eigenvalues_power_method_numba(A, max_iter=50000):
-    """Approximate eigenvalues using power method with pure Python."""
-    n = len(A)
+def back_substitution_numba(R, b):
+    """Solve Rx = b using @njit core + wrapper."""
+    n = len(R)
 
+    # Convert R to flat array
+    R_flat = [0.0 for _ in range(n * n)]
+    for i in range(n):
+        for j in range(n):
+            R_flat[i * n + j] = R[i][j]
+
+    return _back_substitution_flat(R_flat, b, n)
+
+@njit
+def _eigenvalues_power_method_flat(A_flat, n, max_iter=50000):
+    """@njit power method using flat arrays."""
     # Just get largest eigenvalue for now
     v = [1.0 for _ in range(n)]
-    for _ in range(max_iter):
-        v_new = matrix_vector_multiply_numba(A, v)
-        norm = 0.0
-        for i, val in enumerate(v_new):
-            norm += val ** 2
-        norm = math.sqrt(norm)
-        if norm > 1e-10:
-            for i, val in enumerate(v_new):
-                v[i] = val / norm
 
-    # Rayleigh quotient
-    Av = matrix_vector_multiply_numba(A, v)
+    for _ in range(max_iter):
+        # A * v using flat array
+        v_new = [0.0 for _ in range(n)]
+        for i in range(n):
+            for j in range(n):
+                v_new[i] += A_flat[i * n + j] * v[j]
+
+        # Normalize
+        norm = 0.0
+        for i in range(n):
+            norm += v_new[i] ** 2
+        norm = math.sqrt(norm)
+
+        if norm > 1e-10:
+            for i in range(n):
+                v[i] = v_new[i] / norm
+
+    # Rayleigh quotient: v^T * A * v
+    Av = [0.0 for _ in range(n)]
+    for i in range(n):
+        for j in range(n):
+            Av[i] += A_flat[i * n + j] * v[j]
+
     lambda_max = 0.0
     for i in range(n):
         lambda_max += v[i] * Av[i]
 
-    # Return both max and rough estimate of min
     return [lambda_max, lambda_max / 1000.0]
 
-# @njit  # Removed to avoid reflection issues
-def generate_polynomial_features_numba(x, degree, x_min, x_max, normalize):
-    """Generate polynomial features with pure Python."""
+def eigenvalues_power_method_numba(A, max_iter=50000):
+    """Eigenvalues using @njit core + wrapper."""
+    n = len(A)
+
+    # Convert A to flat array
+    A_flat = [0.0 for _ in range(n * n)]
+    for i in range(n):
+        for j in range(n):
+            A_flat[i * n + j] = A[i][j]
+
+    return _eigenvalues_power_method_flat(A_flat, n, max_iter)
+
+@njit
+def _generate_polynomial_features_flat(x, degree, x_min, x_max, normalize):
+    """Generate polynomial features as flat array for @njit."""
     n = len(x)
 
     if normalize and degree > 3:
@@ -227,7 +355,8 @@ def generate_polynomial_features_numba(x, degree, x_min, x_max, normalize):
     else:
         x_normalized = x[:]
 
-    polynomial_features = [[0.0 for _ in range(degree)] for _ in range(n)]
+    # Use flat array for @njit compatibility
+    flat_features = [0.0 for _ in range(n * degree)]
     for i in range(n):
         for d in range(1, degree + 1):
             # For very high degrees, scale down the features
@@ -243,7 +372,21 @@ def generate_polynomial_features_numba(x, degree, x_min, x_max, normalize):
                 sign = 1 if x_normalized[i] >= 0 else -1
                 feature = sign * (abs(x_normalized[i]) ** (d / 2.0))
 
-            polynomial_features[i][d - 1] = feature
+            flat_features[i * degree + (d - 1)] = feature
+
+    return flat_features
+
+def generate_polynomial_features_numba(x, degree, x_min, x_max, normalize):
+    """Generate polynomial features using @njit core + wrapper."""
+    # Use @njit core function for speed
+    flat_features = _generate_polynomial_features_flat(x, degree, x_min, x_max, normalize)
+
+    # Convert to nested list for compatibility
+    n = len(x)
+    polynomial_features = [[0.0 for _ in range(degree)] for _ in range(n)]
+    for i in range(n):
+        for d in range(degree):
+            polynomial_features[i][d] = flat_features[i * degree + d]
 
     return polynomial_features
 
@@ -351,7 +494,7 @@ class LeastSquares:
 
             # Add ridge regularization
             for i in range(1, n_features):  # Skip intercept
-                XtX[i, i] += self.alpha
+                XtX[i][i] += self.alpha
 
             # Solve system using Numba
             try:
@@ -442,7 +585,7 @@ class LeastSquares:
 
         # Add ridge regularization
         for i in range(1, n_features):
-            XtX[i, i] += self.alpha
+            XtX[i][i] += self.alpha
 
         return self._condition_number(XtX)
 
