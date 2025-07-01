@@ -1,15 +1,13 @@
 """Unified regression engine for multiple implementations and regression types."""
 
+import math
 import numpy as np
+
 from approaches import least_squares_numpy
 from approaches import least_squares_numba
 from approaches import least_squares_pure
+from constants import S_BOLD, E_BOLD
 
-# Global constants used for bold text and red warning messages.
-S_BOLD = "\033[1m"
-E_BOLD = "\033[0m"
-S_RED = "\033[91m"
-E_RED = "\033[0m"
 
 class RegressionRun:
     """Unified regression engine that supports multiple implementations and regression types."""
@@ -58,9 +56,9 @@ class RegressionRun:
             return self._run_numba_regression(X, y, regression_type, function_type)
         if self.engine_choice == 3:
             return self._run_pure_regression(X, y, regression_type, function_type)
-
         raise ValueError(f"Unknown engine choice: {self.engine_choice}")
 
+    # pylint: disable=too-many-return-statements
     def _transform_features_for_function_numpy(self, X, y, function_type):
         """Transform features for special functions using NumPy."""
         X_flat = X.flatten() if hasattr(X, 'flatten') else X
@@ -124,7 +122,6 @@ class RegressionRun:
     # pylint: disable=duplicate-code,too-many-return-statements
     def _transform_features_for_function_pure(self, X, y, function_type):
         """Transform features for special functions using pure Python."""
-        import math
 
         X_flat = X.flatten() if hasattr(X, 'flatten') else [item for sublist in X for item in sublist] if isinstance(
             X[0], list) else X
@@ -198,6 +195,7 @@ class RegressionRun:
             return least_squares_numpy.ElasticNetRegression(alpha=0.0001, l1_ratio=0.5)
         raise ValueError(f"Unknown regression type: {regression_type}")
 
+    # pylint: disable=too-many-return-statements
     def _run_numpy_regression(self, X, y, regression_type, function_type):
         """Run regression using NumPy implementation - FIXED VERSION."""
         if 1 <= function_type <= 7:
@@ -280,6 +278,8 @@ class RegressionRun:
             model = least_squares_numpy.LassoRegression(alpha=0.01)
         elif regression_type == 4:
             model = least_squares_numpy.ElasticNetRegression(alpha=0.01, l1_ratio=0.5)
+        else:
+            raise ValueError(f"Unknown regression type: {regression_type}")
 
         # Fit model
         model.fit(X_transformed, y_transformed)
@@ -314,6 +314,7 @@ class RegressionRun:
 
         return np.column_stack(polynomial_features)
 
+    # pylint: disable=too-many-return-statements
     def _run_numba_regression(self, X, y, regression_type, function_type):
         """Run regression using Numba implementation."""
         if 1 <= function_type <= 7:
@@ -334,11 +335,11 @@ class RegressionRun:
                     'degree': degree
                 }
 
-            elif regression_type == 2:  # Ridge regression
+            if regression_type == 2:  # Ridge regression
                 # Pro vysoké stupně použít menší alpha
                 alpha = 0.001 if degree <= 5 else 0.00001
                 model = least_squares_numba.RidgeRegression(alpha=alpha)
-                
+
                 # Create polynomial features (consistent with NumPy)
                 X_poly_numpy = self._generate_polynomial_features(X, degree)
                 # Convert NumPy array to list of lists for Numba engine
@@ -353,10 +354,10 @@ class RegressionRun:
                     'degree': degree
                 }
 
-            elif regression_type == 3:  # Lasso regression
+            if regression_type == 3:  # Lasso regression
                 alpha = 0.0001 if degree <= 5 else 0.000001
                 model = least_squares_numba.LassoRegression(alpha=alpha)
-                
+
                 # Create polynomial features (consistent with NumPy)
                 X_poly_numpy = self._generate_polynomial_features(X, degree)
                 # Convert NumPy array to list of lists for Numba engine
@@ -371,10 +372,10 @@ class RegressionRun:
                     'degree': degree
                 }
 
-            elif regression_type == 4:  # ElasticNet regression
+            if regression_type == 4:  # ElasticNet regression
                 alpha = 0.0001 if degree <= 5 else 0.000001
                 model = least_squares_numba.ElasticNetRegression(alpha=alpha, l1_ratio=0.5)
-                
+
                 # Create polynomial features (consistent with NumPy)
                 X_poly_numpy = self._generate_polynomial_features(X, degree)
                 # Convert NumPy array to list of lists for Numba engine
@@ -408,7 +409,7 @@ class RegressionRun:
                         'is_transformed': True
                     }
 
-                elif regression_type == 2:  # Ridge regression
+                if regression_type == 2:  # Ridge regression
                     model = least_squares_numba.RidgeRegression(alpha=0.001)
                     model.fit(X_transformed, y_transformed)
                     coeffs = model.coefficients if hasattr(model, 'coefficients') else [model.intercept] + list(model.coefficients) if hasattr(model, 'intercept') else []
@@ -421,7 +422,7 @@ class RegressionRun:
                         'is_transformed': True
                     }
 
-                elif regression_type == 3:  # Lasso regression
+                if regression_type == 3:  # Lasso regression
                     model = least_squares_numba.LassoRegression(alpha=0.1)
                     model.fit(X_transformed, y_transformed)
                     coeffs = model.coefficients
@@ -434,7 +435,7 @@ class RegressionRun:
                         'is_transformed': True
                     }
 
-                elif regression_type == 4:  # ElasticNet regression
+                if regression_type == 4:  # ElasticNet regression
                     model = least_squares_numba.ElasticNetRegression(alpha=0.1, l1_ratio=0.5)
                     model.fit(X_transformed, y_transformed)
                     coeffs = model.coefficients
@@ -447,7 +448,7 @@ class RegressionRun:
                         'is_transformed': True
                     }
 
-            except Exception as e:
+            except (ValueError, RuntimeError, ArithmeticError) as e:
                 return {
                     'status': 'failed',
                     'engine': 'numba',
@@ -460,6 +461,7 @@ class RegressionRun:
             'error': 'Unknown regression or function type'
         }
 
+    # pylint: disable=too-many-return-statements
     def _run_pure_regression(self, X, y, regression_type, function_type):
         """Run regression using Pure Python implementation."""
         if 1 <= function_type <= 7:
@@ -536,6 +538,8 @@ class RegressionRun:
             model = least_squares_pure.LassoRegression(alpha=0.0001)
         elif regression_type == 4:
             model = least_squares_pure.ElasticNetRegression(alpha=0.0001, l1_ratio=0.5)
+        else:
+            raise ValueError(f"Unknown regression type: {regression_type}")
 
         # Fit model
         model.fit(X_transformed, y_transformed)
@@ -554,7 +558,7 @@ class RegressionRun:
         """Generate polynomial features for pure Python with stable scaling."""
         X_flat = X.flatten() if hasattr(X, 'flatten') else [item for sublist in X for item in sublist] if isinstance(X[0], list) else X
         n = len(X_flat)
-        
+
         # Normalize to [0, 1] range for better numerical stability
         x_min = min(X_flat)
         x_max = max(X_flat)
@@ -562,7 +566,7 @@ class RegressionRun:
             X_normalized = [(x - x_min) / (x_max - x_min) for x in X_flat]
         else:
             X_normalized = X_flat
-        
+
         # Create list of lists for polynomial features bez škálování
         polynomial_features = []
         for i in range(n):
@@ -572,17 +576,17 @@ class RegressionRun:
                 feature = X_normalized[i] ** d  # Žádné dodatečné škálování
                 row.append(feature)
             polynomial_features.append(row)
-        
+
         return polynomial_features
 
     def _generate_polynomial_features_numba(self, X, degree):
         """Generate polynomial features for Numba engine (consistent with NumPy)."""
         X_flat = X.flatten() if hasattr(X, 'flatten') else [item for sublist in X for item in sublist] if isinstance(X[0], list) else X
-        
+
         # Use same normalization as NumPy for consistency
         x_min = min(X_flat)
         x_max = max(X_flat)
-        
+
         # Apply normalization for degree > 3 (consistent with NumPy)
         if degree > 3:
             if x_max - x_min > 1e-10:
@@ -591,7 +595,7 @@ class RegressionRun:
                 X_normalized = X_flat
         else:
             X_normalized = X_flat
-        
+
         # Create list of lists for polynomial features
         polynomial_features = []
         for i in range(len(X_flat)):
@@ -600,33 +604,32 @@ class RegressionRun:
                 feature = X_normalized[i] ** d
                 row.append(feature)
             polynomial_features.append(row)
-        
+
         return polynomial_features
 
     def _transform_features_for_function_pure(self, X, y, function_type):
         """Transform features for special functions using pure Python."""
-        import math
-        
+
         X_flat = X.flatten() if hasattr(X, 'flatten') else [item for sublist in X for item in sublist] if isinstance(X[0], list) else X
         y_list = y.tolist() if hasattr(y, 'tolist') else list(y)
-        
+
         min_val = 1e-10
-        
+
         if function_type == 8:  # Log-Linear: y = a + b*log(x)
             X_positive = [max(x, min_val) for x in X_flat]
             X_transformed = [[math.log(x)] for x in X_positive]
             return X_transformed, y_list
-            
+
         if function_type == 11:  # Square Root: y = a + b*sqrt(x)
             X_positive = [max(x, 0) for x in X_flat]
             X_transformed = [[math.sqrt(x)] for x in X_positive]
             return X_transformed, y_list
-            
+
         if function_type == 12:  # Inverse: y = a + b/x
             X_nonzero = [x if abs(x) > min_val else min_val for x in X_flat]
             X_transformed = [[1.0 / x] for x in X_nonzero]
             return X_transformed, y_list
-        
+
         # For other function types, just return linear transformation for simplicity
         X_transformed = [[x] for x in X_flat]
         return X_transformed, y_list

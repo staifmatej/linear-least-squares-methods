@@ -1,17 +1,8 @@
 """Main script for testing linear regression implementations - FIXED VERSION."""
 
 import os
-import warnings
-# Suppress OpenMP warnings before any imports (especially in Jupyter)
-os.environ['OMP_DISPLAY_ENV'] = 'FALSE'
-os.environ['OMP_NESTED'] = 'FALSE'
-os.environ['KMP_WARNINGS'] = 'FALSE'
 
-# Redirect OpenMP stderr to suppress warnings
-import sys
-from contextlib import redirect_stderr
-from io import StringIO
-
+from constants import S_RED, E_RED
 from utils import (
     DataLoader,
     RegressionRun,
@@ -21,16 +12,17 @@ from utils import (
     print_selected_specifications,
     print_selected_configurations,
     print_condition_numbers,
-    print_coefficients
+    print_coefficients,
 )
+from utils.timer_regression_engines import run_performance_benchmark
 
-# Global constants used for bold text and red warning messages.
-S_BOLD = "\033[1m"
-E_BOLD = "\033[0m"
-S_RED = "\033[91m"
-E_RED = "\033[0m"
+# Suppress OpenMP warnings before any imports (especially in Jupyter)
+os.environ['OMP_DISPLAY_ENV'] = 'FALSE'
+os.environ['OMP_NESTED'] = 'FALSE'
+os.environ['KMP_WARNINGS'] = 'FALSE'
 
 
+# pylint: disable=too-many-arguments, too-many-positional-arguments
 def show_results_menu(X, y, results, engine_choice, regression_types, function_types):
     """Show results menu and handle user choices."""
     while 1:
@@ -60,8 +52,7 @@ def show_results_menu(X, y, results, engine_choice, regression_types, function_t
         elif user_input == '5':
             print_selected_configurations(engine_choice, regression_types, function_types)
         elif user_input == '6':
-            from utils.timer_regression_engines import run_performance_benchmark
-            run_performance_benchmark(X, y, regression_types, function_types)
+            run_performance_benchmark(X, y)
         elif user_input == '7':
             break
         else:

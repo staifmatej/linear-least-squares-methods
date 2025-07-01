@@ -1,9 +1,13 @@
 """Visualization and plotting utilities for regression results with Seaborn."""
 
+import warnings
+import math
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
-import warnings
+
+from approaches.least_squares_numpy import generate_polynomial_features
+from constants import S_RED, E_RED
 
 # Suppress common warnings
 warnings.filterwarnings('ignore', message='Objective did not converge')
@@ -12,16 +16,12 @@ warnings.filterwarnings('ignore', message='Objective did not converge')
 sns.set_theme(style="whitegrid", palette="Set2")
 sns.set_context("notebook", font_scale=1.2)
 
+
 # Custom color palettes for different themes
 COLOR_THEMES = {
     'modern': ['#2E86AB', '#A23B72', '#F18F01', '#C73E1D']
 }
 
-# Global constants used for bold text and red warning messages.
-S_BOLD = "\033[1m"
-E_BOLD = "\033[0m"
-S_RED = "\033[91m"
-E_RED = "\033[0m"
 
 
 class VisualizationData:
@@ -38,9 +38,9 @@ class VisualizationData:
             return np.array(data)
         return data
 
+    # pylint: disable=duplicate-code, disable=too-many-return-statements
     def _transform_features_for_prediction_pure(self, X, function_type):
         """Transform features for prediction according to function type (pure Python version)."""
-        import math
 
         X_list = X.flatten().tolist() if hasattr(X, 'flatten') else X
         min_val = 1e-10
@@ -97,7 +97,7 @@ class VisualizationData:
 
         raise ValueError(f"Unknown function type: {function_type}")
 
-    # pylint: disable=too-many-locals,too-many-branches, too-many-statements
+    # pylint: disable=too-many-locals,too-many-branches,too-many-statements,too-many-nested-blocks,duplicate-code,too-many-return-statements
     def plot_results(self, selected_results=None):
         """Plot regression results with enhanced Seaborn styling."""
         if selected_results is None:
@@ -126,9 +126,9 @@ class VisualizationData:
         fig = plt.figure(figsize=(7 * n_cols, 6 * n_rows), facecolor='white')
 
         theme_colors = COLOR_THEMES['modern']
-        
+
         # Enhanced color scheme for different regression types
-        scatter_color = '#3498db'  # Bright blue for data points - better visibility
+        _ = '#3498db'  # Bright blue for data points - better visibility
         # Use same color for all regression types - consistent appearance
         consistent_color = theme_colors[0]  # Primary color for all
         line_colors = {
@@ -137,35 +137,36 @@ class VisualizationData:
             "Lasso": consistent_color,
             "ElasticNet": consistent_color
         }
-        
+
         # Add gradient background
         fig.patch.set_facecolor('#fafafa')
 
         # Create x points for smooth curves
         x_smooth = np.linspace(self.X.min(), self.X.max(), 300)
 
+        # pylint: disable=too-many-nested-blocks
         for idx, ((reg_type, func_type), result) in enumerate(successful_results):
             ax = plt.subplot(n_rows, n_cols, idx + 1)
 
             # Set beautiful individual subplot style
             ax.set_facecolor('#fcfcfc')
             ax.grid(True, alpha=0.4, linestyle='-', linewidth=0.7, color='#e8e8e8')
-            
+
             # Add subtle gradient border
             for spine in ax.spines.values():
                 spine.set_edgecolor('#d0d0d0')
                 spine.set_linewidth(1.5)
 
             # Plot original data with enhanced style - no overlapping effects
-            scatter = ax.scatter(self.X.flatten(), self.y, alpha=0.9, s=60, 
-                               c=scatter_color, edgecolors='white', linewidth=1.5,
-                               label='Data Points', zorder=5)
+            ax.scatter(self.X.flatten(), self.y, alpha=0.9, s=60,
+                       c='#3498db', edgecolors='white', linewidth=1.5,
+                       label='Data Points', zorder=5)
 
             # Get predictions - handle different result formats
             if 'model' not in result:
                 print(f"Warning: Result missing 'model' key: {result}")
                 continue
-            
+
             model = result['model']
 
             try:
@@ -173,8 +174,8 @@ class VisualizationData:
                 is_pure_python = hasattr(model, '__module__') and 'pure' in model.__module__
                 is_numba_python = hasattr(model, '__module__') and 'numba' in model.__module__
                 # Check if model uses sklearn internally
-                is_sklearn_wrapper = (hasattr(model, 'model') and 
-                                     hasattr(model.model, 'predict') and 
+                is_sklearn_wrapper = (hasattr(model, 'model') and
+                                     hasattr(model.model, 'predict') and
                                      model.__class__.__name__ in ['LassoRegression', 'ElasticNetRegression'])
 
 
@@ -227,7 +228,7 @@ class VisualizationData:
                         if degree > 1:
                             # For polynomial LinearRegression, use model's own polynomial feature generation
                             # This ensures consistent normalization parameters
-                            X_smooth_poly = model._generate_polynomial_features(x_smooth)
+                            X_smooth_poly = model._generate_polynomial_features(x_smooth)  # pylint: disable=protected-access
                             X_smooth_poly_with_intercept = np.column_stack([np.ones(len(x_smooth)), X_smooth_poly])
                             y_pred_smooth = X_smooth_poly_with_intercept @ model.coefficients
                         else:
@@ -240,9 +241,8 @@ class VisualizationData:
 
                         if is_pure_python or is_numba_python:
                             # Use the same polynomial feature generation as the engine
-                            from utils.run_regression import RegressionRun
-                            runner = RegressionRun(1, [], [])  # Temporary runner to access method
-                            X_smooth_poly_np = runner._generate_polynomial_features(x_smooth.reshape(-1, 1), degree)
+                            # Use generate_polynomial_features directly
+                            X_smooth_poly_np = generate_polynomial_features(x_smooth.reshape(-1, 1), degree)
                             X_smooth_poly = X_smooth_poly_np.tolist()
 
                             # For sklearn wrappers in Pure Python, use underlying sklearn model
@@ -255,10 +255,10 @@ class VisualizationData:
                             y_pred_smooth = self._ensure_numpy_array(y_pred_smooth)
                         else:
                             # Use the same polynomial feature generation as the engine
-                            from utils.run_regression import RegressionRun
-                            runner = RegressionRun(1, [], [])  # Temporary runner to access method
-                            X_smooth_poly = runner._generate_polynomial_features(x_smooth.reshape(-1, 1), degree)
-                            
+                            # No need to import RegressionRun anymore
+                            # Use generate_polynomial_features directly
+                            X_smooth_poly = generate_polynomial_features(x_smooth.reshape(-1, 1), degree)
+
                             if is_sklearn_wrapper:
                                 # Use the underlying sklearn model for prediction
                                 y_pred_smooth = model.model.predict(X_smooth_poly)
@@ -272,21 +272,21 @@ class VisualizationData:
                 line_color = line_colors.get(reg_name, theme_colors[0])
 
                 # Main fit line with shadow effect
-                ax.plot(x_smooth, y_pred_smooth, color='white', linewidth=5, 
+                ax.plot(x_smooth, y_pred_smooth, color='white', linewidth=5,
                        alpha=0.8, zorder=2)  # White shadow
-                ax.plot(x_smooth, y_pred_smooth, color=line_color, linewidth=3.5, 
+                ax.plot(x_smooth, y_pred_smooth, color=line_color, linewidth=3.5,
                        alpha=0.95, label='Regression Fit', zorder=3)
 
                 # Beautiful confidence band with gradient effect
                 std_dev = np.std(y_pred_smooth)
                 confidence_upper = y_pred_smooth + 0.08 * std_dev
                 confidence_lower = y_pred_smooth - 0.08 * std_dev
-                
+
                 ax.fill_between(x_smooth, confidence_lower, confidence_upper,
                                alpha=0.15, color=line_color, zorder=1)
-                
+
                 # Add subtle highlight line
-                ax.plot(x_smooth, y_pred_smooth, color='white', linewidth=1, 
+                ax.plot(x_smooth, y_pred_smooth, color='white', linewidth=1,
                        alpha=0.6, zorder=4)
 
             except (ValueError, RuntimeError, np.linalg.LinAlgError) as e:
@@ -306,9 +306,9 @@ class VisualizationData:
 
             # Beautiful modern title and labels with color coordination
             title_color = line_color if line_color else theme_colors[0]
-            ax.set_title(title, fontsize=15, fontweight='bold', pad=25, 
+            ax.set_title(title, fontsize=15, fontweight='bold', pad=25,
                         color=title_color, alpha=0.9)
-            ax.set_xlabel('Input Values (X)', fontsize=12, fontweight='semibold', 
+            ax.set_xlabel('Input Values (X)', fontsize=12, fontweight='semibold',
                          color='#2c3e50', alpha=0.8)
             ax.set_ylabel('Output Values (Y)', fontsize=12, fontweight='semibold',
                          color='#2c3e50', alpha=0.8)
@@ -319,17 +319,16 @@ class VisualizationData:
                               edgecolor='none', facecolor='white')
             legend.get_frame().set_facecolor('#ffffff')
             legend.get_frame().set_alpha(0.95)
-            
+
             # Add subtle border radius effect simulation
             legend.get_frame().set_linewidth(0)
-            
+
             # Enhance tick parameters for modern look
-            ax.tick_params(axis='both', which='major', labelsize=10, 
+            ax.tick_params(axis='both', which='major', labelsize=10,
                           colors='#34495e', length=6, width=1)
-            ax.tick_params(axis='both', which='minor', labelsize=8, 
+            ax.tick_params(axis='both', which='minor', labelsize=8,
                           colors='#7f8c8d', length=3, width=0.5)
-            
-            # Remove inner shadow - cleaner look
+
 
         # Hide empty subplots
         if n_plots < len(plt.gcf().axes):
@@ -344,10 +343,11 @@ class VisualizationData:
         # Add beautiful window styling
         plt.rcParams['figure.facecolor'] = '#fafafa'
         plt.rcParams['axes.facecolor'] = '#fcfcfc'
-        
+
         # Show plot with enhanced modern window
         plt.show()
 
+    # pylint: disable=duplicate-code
     def plot_results_individually(self, selected_results=None):
         """Plot each regression result in a separate window."""
         if selected_results is None:
@@ -371,13 +371,14 @@ class VisualizationData:
 
         # Choose color theme
         theme_colors = COLOR_THEMES['modern']
-        scatter_color = '#3498db'
+        _ = '#3498db'
         consistent_color = theme_colors[0]
 
         # Create x points for smooth curves
         x_smooth = np.linspace(self.X.min(), self.X.max(), 300)
 
-        for idx, ((reg_type, func_type), result) in enumerate(successful_results):
+        # pylint: disable=too-many-nested-blocks
+        for _, ((reg_type, func_type), result) in enumerate(successful_results):
             # Create individual figure
             plt.figure(figsize=(8, 6), facecolor='#fafafa')
             ax = plt.gca()
@@ -385,16 +386,12 @@ class VisualizationData:
             # Set beautiful subplot style
             ax.set_facecolor('#fcfcfc')
             ax.grid(True, alpha=0.4, linestyle='-', linewidth=0.7, color='#e8e8e8')
-            
+
             # Add subtle gradient border
             for spine in ax.spines.values():
                 spine.set_edgecolor('#d0d0d0')
                 spine.set_linewidth(1.5)
 
-            # Plot original data
-            scatter = ax.scatter(self.X.flatten(), self.y, alpha=0.9, s=80, 
-                               c=scatter_color, edgecolors='white', linewidth=2,
-                               label='Data Points', zorder=5)
 
             # Get predictions (same logic as main plot_results)
             model = result['model']
@@ -403,8 +400,8 @@ class VisualizationData:
                 # Detect model type
                 is_pure_python = hasattr(model, '__module__') and 'pure' in model.__module__
                 is_numba_python = hasattr(model, '__module__') and 'numba' in model.__module__
-                is_sklearn_wrapper = (hasattr(model, 'model') and 
-                                     hasattr(model.model, 'predict') and 
+                is_sklearn_wrapper = (hasattr(model, 'model') and
+                                     hasattr(model.model, 'predict') and
                                      model.__class__.__name__ in ['LassoRegression', 'ElasticNetRegression'])
 
                 # Handle predictions (same logic as main method)
@@ -449,7 +446,7 @@ class VisualizationData:
                         if degree > 1:
                             # For polynomial LinearRegression, use model's own polynomial feature generation
                             # This ensures consistent normalization parameters
-                            X_smooth_poly = model._generate_polynomial_features(x_smooth)
+                            X_smooth_poly = model._generate_polynomial_features(x_smooth)  # pylint: disable=protected-access
                             X_smooth_poly_with_intercept = np.column_stack([np.ones(len(x_smooth)), X_smooth_poly])
                             y_pred_smooth = X_smooth_poly_with_intercept @ model.coefficients
                         else:
@@ -458,7 +455,7 @@ class VisualizationData:
                         y_pred_smooth = self._ensure_numpy_array(y_pred_smooth)
                     else:
                         degree = result.get('degree', 1)
-                        
+
                         if is_pure_python or is_numba_python:
                             x_smooth_list = x_smooth.tolist()
                             X_smooth_poly = []
@@ -467,15 +464,15 @@ class VisualizationData:
                                 for d in range(1, degree + 1):
                                     row.append(x ** d)
                                 X_smooth_poly.append(row)
-                            
+
                             y_pred_smooth = model.predict(X_smooth_poly)
                             y_pred_smooth = self._ensure_numpy_array(y_pred_smooth)
                         else:
                             # Use the same polynomial feature generation as the engine
-                            from utils.run_regression import RegressionRun
-                            runner = RegressionRun(1, [], [])  # Temporary runner to access method
-                            X_smooth_poly = runner._generate_polynomial_features(x_smooth.reshape(-1, 1), degree)
-                            
+                            # No need to import RegressionRun anymore
+                            # Use generate_polynomial_features directly
+                            X_smooth_poly = generate_polynomial_features(x_smooth.reshape(-1, 1), degree)
+
                             if is_sklearn_wrapper and hasattr(model, 'model'):
                                 y_pred_smooth = model.model.predict(X_smooth_poly)
                             else:
@@ -483,21 +480,21 @@ class VisualizationData:
                             y_pred_smooth = self._ensure_numpy_array(y_pred_smooth)
 
                 # Plot gorgeous fitted line
-                ax.plot(x_smooth, y_pred_smooth, color='white', linewidth=5, 
+                ax.plot(x_smooth, y_pred_smooth, color='white', linewidth=5,
                        alpha=0.8, zorder=2)  # White shadow
-                ax.plot(x_smooth, y_pred_smooth, color=consistent_color, linewidth=3.5, 
+                ax.plot(x_smooth, y_pred_smooth, color=consistent_color, linewidth=3.5,
                        alpha=0.95, label='Regression Fit', zorder=3)
 
                 # Beautiful confidence band
                 std_dev = np.std(y_pred_smooth)
                 confidence_upper = y_pred_smooth + 0.08 * std_dev
                 confidence_lower = y_pred_smooth - 0.08 * std_dev
-                
+
                 ax.fill_between(x_smooth, confidence_lower, confidence_upper,
                                alpha=0.15, color=consistent_color, zorder=1)
-                
+
                 # Add subtle highlight line
-                ax.plot(x_smooth, y_pred_smooth, color='white', linewidth=1, 
+                ax.plot(x_smooth, y_pred_smooth, color='white', linewidth=1,
                        alpha=0.6, zorder=4)
 
             except (ValueError, RuntimeError, np.linalg.LinAlgError) as e:
@@ -518,20 +515,16 @@ class VisualizationData:
             title = f"{regression_names[reg_type]} • {function_names.get(func_type, f'Function {func_type}')}"
 
             # Beautiful modern title and labels
-            ax.set_title(title, fontsize=16, fontweight='bold', pad=25, 
+            ax.set_title(title, fontsize=16, fontweight='bold', pad=25,
                         color=consistent_color, alpha=0.9)
-            ax.set_xlabel('Input Values (X)', fontsize=13, fontweight='semibold', 
+            ax.set_xlabel('Input Values (X)', fontsize=13, fontweight='semibold',
                          color='#2c3e50', alpha=0.8)
             ax.set_ylabel('Output Values (Y)', fontsize=13, fontweight='semibold',
                          color='#2c3e50', alpha=0.8)
 
-            # Gorgeous modern legend
-            legend = ax.legend(loc='best', frameon=True, fancybox=True,
-                              shadow=True, framealpha=0.95, fontsize=12,
-                              edgecolor='none', facecolor='white')
-            
+
             # Enhance tick parameters
-            ax.tick_params(axis='both', which='major', labelsize=11, 
+            ax.tick_params(axis='both', which='major', labelsize=11,
                           colors='#34495e', length=6, width=1)
 
             # Adjust layout
@@ -620,4 +613,3 @@ class VisualizationData:
             return X_transformed, None
 
         raise ValueError(f"Unknown function type: {function_type}")
-

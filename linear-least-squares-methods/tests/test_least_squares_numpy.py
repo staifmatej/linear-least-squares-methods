@@ -10,6 +10,7 @@ import numpy as np
 warnings.filterwarnings('ignore')
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+# pylint: disable=wrong-import-position
 from approaches.least_squares_numpy import LeastSquares, LinearRegression, RidgeRegression
 
 
@@ -93,7 +94,7 @@ class TestLeastSquaresNumpy(unittest.TestCase):
         """Test polynomial feature generation."""
         model = LinearRegression(degree=3)
         test_x = np.array([1, 2, 3])
-        features = model._generate_polynomial_features(test_x)
+        features = model._generate_polynomial_features(test_x)  # pylint: disable=protected-access
         self.assertEqual(features.shape[1], 3)
         self.assertEqual(features.shape[0], 3)
 
@@ -101,7 +102,7 @@ class TestLeastSquaresNumpy(unittest.TestCase):
         """Test condition number calculation for stability."""
         model = LeastSquares("LinearRegression")
         x_matrix = np.random.randn(20, 3)
-        condition_num = model._calculate_standard_condition_number(x_matrix)
+        condition_num = model._calculate_standard_condition_number(x_matrix)  # pylint: disable=protected-access
         self.assertIsInstance(condition_num, float)
         self.assertGreater(condition_num, 0)
 

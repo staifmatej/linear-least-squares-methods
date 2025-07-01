@@ -4,11 +4,7 @@ import os
 import numpy as np
 import pandas as pd
 
-# Global constants used for bold text and red warning messages.
-S_BOLD = "\033[1m"
-E_BOLD = "\033[0m"
-S_RED = "\033[91m"
-E_RED = "\033[0m"
+from constants import S_BOLD, S_RED, E_BOLD, E_RED
 
 
 class DataLoader:

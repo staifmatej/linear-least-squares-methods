@@ -1,18 +1,17 @@
 """Unit tests for RegressionRun class."""
 
-import os
-import sys
 import unittest
 import warnings
 
 import numpy as np
 
-warnings.filterwarnings('ignore')
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from utils.run_regression import RegressionRun
 
+warnings.filterwarnings('ignore')
 
+
+
+# pylint: disable=too-many-public-methods
 class TestRegressionRun(unittest.TestCase):
     """Test RegressionRun class functionality."""
 

@@ -3,23 +3,19 @@
 import warnings
 import math
 from sklearn.linear_model import Lasso, ElasticNet
+from constants import S_RED, E_RED
 
 # Suppress common warnings
 warnings.filterwarnings('ignore', message='Objective did not converge')
 
-# Global constants used for bold text and red warning messages.
-S_BOLD = "\033[1m"
-E_BOLD = "\033[0m"
-S_RED = "\033[91m"
-E_RED = "\033[0m"
 
-
+# pylint: disable=duplicate-code
 def fit_error_handling(coefficients):
     """fit error handling for Regression model."""
     if coefficients is None:
         raise ValueError("Model not fitted yet. Call fit() first.")
 
-
+# pylint: disable=duplicate-code
 def create_zero_matrix(rows, cols):
     """Create a matrix filled with zeros."""
     return [[0.0 for _ in range(cols)] for _ in range(rows)]
@@ -192,12 +188,12 @@ def eigenvalues_power_method_pure(A, max_iter=50000):
     for _ in range(max_iter):
         v_new = matrix_vector_multiply_pure(A, v)
         norm = 0.0
-        for i in range(len(v_new)):
-            norm += v_new[i] ** 2
+        for i, val in enumerate(v_new):
+            norm += val ** 2
         norm = math.sqrt(norm)
         if norm > 1e-10:
-            for i in range(len(v)):
-                v[i] = v_new[i] / norm
+            for i, val in enumerate(v_new):
+                v[i] = val / norm
 
     # Rayleigh quotient
     Av = matrix_vector_multiply_pure(A, v)
@@ -260,6 +256,7 @@ class LeastSquares:
         if type_regression not in types_of_regression:
             raise ValueError(f"Type {self.type_regression} is not a valid predefined type.")
 
+    # pylint: disable=duplicate-code, disable=too-many-branches
     def multivariate_ols(self, X, Y):
         """
         X: feature matrix
@@ -287,7 +284,7 @@ class LeastSquares:
         n_samples = len(Y)
         n_features = len(X[0])
         X_with_intercept = create_zero_matrix(n_samples, n_features + 1)
-        
+
         for i in range(n_samples):
             X_with_intercept[i][0] = 1.0  # intercept column
             for j in range(n_features):
@@ -352,7 +349,7 @@ class LeastSquares:
             # Solve system using Pure Python
             try:
                 w = solve_linear_system_pure(XtX, XtY)
-            except:
+            except (ValueError, ArithmeticError, ZeroDivisionError):
                 # Fallback to pseudo-inverse
                 w = self._solve_with_pseudoinverse(XtX, XtY)
         else:
@@ -362,7 +359,7 @@ class LeastSquares:
             # Solve system using Pure Python
             try:
                 w = solve_linear_system_pure(XtX, XtY)
-            except:
+            except (ValueError, ArithmeticError, ZeroDivisionError):
                 # Fallback to pseudo-inverse
                 w = self._solve_with_pseudoinverse(XtX, XtY)
 
@@ -461,7 +458,7 @@ class LeastSquares:
                 return 1e20
 
             return max_eig / min_eig
-        except:
+        except (ValueError, ArithmeticError, ZeroDivisionError):
             return 1e20
 
     # All mathematical operations delegated to pure python functions
@@ -489,6 +486,8 @@ class LinearRegression:
     def __init__(self, degree=1):
         self.degree = degree
         self.coefficients = None
+        self.x_min = None  # For normalization
+        self.x_max = None  # For normalization
 
     def fit(self, X, y):
         """Fit polynomial regression model using normal equations."""
@@ -504,7 +503,7 @@ class LinearRegression:
             y = list(y)
 
         n = len(X)
-        
+
         # Check for underdetermined system (more parameters than data points)
         if n <= self.degree:
             raise ValueError(f"Cannot fit polynomial of degree {self.degree} with {n} data points. "
@@ -513,10 +512,10 @@ class LinearRegression:
         # Save range for normalization
         self.x_min = min(X)
         self.x_max = max(X)
-        
+
         # Generate polynomial features (consistent with NumPy approach)
         X_polynomial = self._generate_polynomial_features_consistent(X)
-        
+
         # Add intercept column
         n_features = len(X_polynomial[0])
         X_with_intercept = create_zero_matrix(n, n_features + 1)
@@ -549,7 +548,7 @@ class LinearRegression:
 
         # Generate polynomial features consistent with training
         X_polynomial = self._generate_polynomial_features_consistent(X)
-        
+
         # Add intercept column
         n_features = len(X_polynomial[0])
         X_with_intercept = create_zero_matrix(len(X), n_features + 1)
@@ -557,7 +556,7 @@ class LinearRegression:
             X_with_intercept[i][0] = 1.0  # intercept
             for j in range(n_features):
                 X_with_intercept[i][j + 1] = X_polynomial[i][j]
-        
+
         # Predict using coefficients
         predictions = []
         for i in range(len(X)):
@@ -579,16 +578,16 @@ class LinearRegression:
                 x_normalized = x[:]
         else:
             x_normalized = x[:]
-        
+
         # Generate polynomial features for degrees 1 to self.degree
         n = len(x)
         polynomial_features = create_zero_matrix(n, self.degree)
         for i in range(n):
             for d in range(1, self.degree + 1):
                 polynomial_features[i][d - 1] = x_normalized[i] ** d
-        
+
         return polynomial_features
-    
+
     def _generate_polynomial_features_consistent(self, x):
         """Generate polynomial features consistent with NumPy approach."""
         return self._generate_polynomial_features(x)
@@ -668,7 +667,7 @@ class RidgeRegression:
         # Calculate expected number of features from coefficients
         n_coeffs = len(self.coefficients)
         expected_features = n_coeffs - 1  # subtract intercept
-        
+
         if len(X[0]) == 1 and expected_features > 1:
             # This is polynomial regression - generate polynomial features
             degree = expected_features
@@ -676,22 +675,22 @@ class RidgeRegression:
             x_min = min(x_flat)
             x_max = max(x_flat)
             X_poly = generate_polynomial_features_pure(x_flat, degree, x_min, x_max, degree > 3)
-            
+
             # Add intercept column to polynomial features
             predictions = []
-            for i in range(len(X_poly)):
+            for _, x_row in enumerate(X_poly):
                 y_pred = self.coefficients[0]  # intercept
-                for j in range(len(X_poly[i])):
-                    y_pred += self.coefficients[j + 1] * X_poly[i][j]
+                for j, val in enumerate(x_row):
+                    y_pred += self.coefficients[j + 1] * val
                 predictions.append(y_pred)
         else:
             # Regular linear prediction
             predictions = []
-            for i in range(len(X)):
+            for _, x_row in enumerate(X):
                 y_pred = self.coefficients[0] if len(self.coefficients) > 0 else 0  # intercept
-                for j in range(len(X[i])):
+                for j, val in enumerate(x_row):
                     if j + 1 < len(self.coefficients):  # +1 because first coeff is intercept
-                        y_pred += self.coefficients[j + 1] * X[i][j]
+                        y_pred += self.coefficients[j + 1] * val
                 predictions.append(y_pred)
 
         return predictions
@@ -731,11 +730,11 @@ class LassoRegression:
         # Handle both 1D and 2D inputs
         if not isinstance(X_list[0], list):
             X_list = [[x] for x in X_list]
-        
+
         # Calculate expected number of features from coefficients
         n_coeffs = len(self.coefficients)
         expected_features = n_coeffs - 1  # subtract intercept
-        
+
         if len(X_list[0]) == 1 and expected_features > 1:
             # This is polynomial regression - generate polynomial features
             degree = expected_features
@@ -746,7 +745,7 @@ class LassoRegression:
             X = X_poly  # Use for sklearn prediction
         else:
             X = X_list
-        
+
         return self.model.predict(X)
 
 
@@ -784,11 +783,11 @@ class ElasticNetRegression:
         # Handle both 1D and 2D inputs
         if not isinstance(X_list[0], list):
             X_list = [[x] for x in X_list]
-        
+
         # Calculate expected number of features from coefficients
         n_coeffs = len(self.coefficients)
         expected_features = n_coeffs - 1  # subtract intercept
-        
+
         if len(X_list[0]) == 1 and expected_features > 1:
             # This is polynomial regression - generate polynomial features
             degree = expected_features
@@ -799,5 +798,5 @@ class ElasticNetRegression:
             X = X_poly  # Use for sklearn prediction
         else:
             X = X_list
-        
+
         return self.model.predict(X)

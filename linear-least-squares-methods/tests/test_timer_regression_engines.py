@@ -1,17 +1,11 @@
 """Unit tests for timer_regression_engines class."""
 
-import os
-import sys
 import time
 import unittest
 from unittest.mock import patch
 import warnings
 
 import numpy as np
-
-warnings.filterwarnings('ignore')
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from utils.timer_regression_engines import (
     clear_all_caches,
     format_time,
@@ -20,6 +14,8 @@ from utils.timer_regression_engines import (
     run_performance_benchmark,
     time_single_engine
 )
+
+warnings.filterwarnings('ignore')
 
 
 class TestTimerRegressionEngines(unittest.TestCase):
@@ -37,8 +33,9 @@ class TestTimerRegressionEngines(unittest.TestCase):
         """Test cache clearing functionality."""
         try:
             clear_all_caches()
-            self.assertTrue(True)
-        except Exception as exception:
+            # Test that cache clearing completes without error
+            # No assertion needed - success is not raising exception
+        except Exception as exception:  # pylint: disable=broad-exception-caught
             self.fail(f"clear_all_caches raised an exception: {exception}")
 
     def test_format_time_basic(self):
@@ -47,7 +44,7 @@ class TestTimerRegressionEngines(unittest.TestCase):
             formatted = format_time(0.001234)
             self.assertIsInstance(formatted, str)
             self.assertGreater(len(formatted), 0)
-        except Exception as exception:
+        except Exception as exception:  # pylint: disable=broad-exception-caught
             self.fail(f"format_time raised an exception: {exception}")
 
     def test_format_time_edge_cases(self):
@@ -58,16 +55,16 @@ class TestTimerRegressionEngines(unittest.TestCase):
                 formatted = format_time(test_time)
                 self.assertIsInstance(formatted, str)
                 self.assertGreater(len(formatted), 0)
-            except Exception as exception:
+            except Exception as exception:  # pylint: disable=broad-exception-caught
                 self.fail(f"format_time({test_time}) raised an exception: {exception}")
 
     @patch('builtins.input', return_value='10')
-    def test_get_benchmark_settings_basic(self, mock_input):
+    def test_get_benchmark_settings_basic(self, _):
         """Test basic benchmark settings retrieval."""
         try:
             settings = get_benchmark_settings()
             self.assertIsInstance(settings, (dict, tuple, list, int))
-        except Exception as exception:
+        except Exception as exception:  # pylint: disable=broad-exception-caught
             self.fail(f"get_benchmark_settings raised an exception: {exception}")
 
     def test_time_single_engine_basic(self):
@@ -77,7 +74,7 @@ class TestTimerRegressionEngines(unittest.TestCase):
                 1, self.small_x, self.small_y, [1], [1], 2
             )
             self.assertIsInstance(timing_result, (dict, float, tuple))
-        except Exception as exception:
+        except Exception as exception:  # pylint: disable=broad-exception-caught
             self.fail(f"time_single_engine raised an exception: {exception}")
 
     def test_time_single_engine_different_engines(self):
@@ -89,7 +86,7 @@ class TestTimerRegressionEngines(unittest.TestCase):
                     engine, self.small_x, self.small_y, [1], [1], 1
                 )
                 self.assertIsInstance(timing_result, (dict, float, tuple))
-            except Exception as exception:
+            except Exception:  # pylint: disable=broad-exception-caught
                 pass
 
     def test_run_comprehensive_benchmark_basic(self):
@@ -99,7 +96,7 @@ class TestTimerRegressionEngines(unittest.TestCase):
                 self.small_x, self.small_y, [1], [1], 2
             )
             self.assertIsInstance(results, (dict, list, tuple))
-        except Exception as exception:
+        except Exception as exception:  # pylint: disable=broad-exception-caught
             self.fail(f"run_comprehensive_benchmark raised an exception: {exception}")
 
     def test_run_comprehensive_benchmark_multiple_types(self):
@@ -109,33 +106,32 @@ class TestTimerRegressionEngines(unittest.TestCase):
                 self.test_x, self.test_y, [1, 2], [1, 2], 1
             )
             self.assertIsInstance(results, (dict, list, tuple))
-        except Exception as exception:
+        except Exception as exception:  # pylint: disable=broad-exception-caught
             self.fail(f"Multiple types benchmark raised an exception: {exception}")
 
     @patch('builtins.input', return_value='10')
-    def test_run_performance_benchmark_basic(self, mock_input):
+    def test_run_performance_benchmark_basic(self, _):
         """Test basic performance benchmark."""
         try:
             run_performance_benchmark(
-                self.small_x, self.small_y, [1], [1]
+                self.small_x, self.small_y
             )
-            self.assertTrue(True)
-        except Exception as exception:
+            # Test that benchmark completes without error
+            # No assertion needed - success is not raising exception
+        except Exception as exception:  # pylint: disable=broad-exception-caught
             self.fail(f"run_performance_benchmark raised an exception: {exception}")
 
     def test_timing_accuracy(self):
         """Test that timing measurements are reasonable."""
         try:
             start_time = time.time()
-            timing_result = time_single_engine(
-                1, self.small_x, self.small_y, [1], [1], 1
-            )
+            _ = time_single_engine(1, self.small_x, self.small_y, [1], [1], 1)
             end_time = time.time()
 
             total_time = end_time - start_time
             self.assertGreater(total_time, 0)
             self.assertLess(total_time, 10)
-        except Exception as exception:
+        except Exception as exception:  # pylint: disable=broad-exception-caught
             self.fail(f"Timing accuracy test raised an exception: {exception}")
 
     def test_benchmark_with_different_data_sizes(self):
@@ -153,7 +149,7 @@ class TestTimerRegressionEngines(unittest.TestCase):
 
             self.assertIsInstance(small_results, (dict, float, tuple))
             self.assertIsInstance(large_results, (dict, float, tuple))
-        except Exception as exception:
+        except Exception as exception:  # pylint: disable=broad-exception-caught
             self.fail(f"Different data sizes benchmark raised an exception: {exception}")
 
     def test_invalid_engine_handling(self):
@@ -163,7 +159,7 @@ class TestTimerRegressionEngines(unittest.TestCase):
                 999, self.small_x, self.small_y, [1], [1], 1
             )
             self.assertIsInstance(timing_result, (dict, float, tuple))
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             pass
 
     def test_zero_runs_handling(self):
@@ -173,7 +169,7 @@ class TestTimerRegressionEngines(unittest.TestCase):
                 1, self.small_x, self.small_y, [1], [1], 0
             )
             self.assertIsInstance(timing_result, (dict, float, tuple))
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             pass
 
 
@@ -194,7 +190,7 @@ class TestTimerRegressionEnginesEdgeCases(unittest.TestCase):
                 1, self.edge_x, self.edge_y, [1], [1], 1
             )
             self.assertIsInstance(timing_result, (dict, float, tuple))
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             pass
 
     def test_identical_x_values_benchmark(self):
@@ -204,7 +200,7 @@ class TestTimerRegressionEnginesEdgeCases(unittest.TestCase):
                 1, self.identical_x, self.identical_y, [1], [1], 1
             )
             self.assertIsInstance(timing_result, (dict, float, tuple))
-        except Exception as exception:
+        except Exception as exception:  # pylint: disable=broad-exception-caught
             self.fail(f"Identical x values benchmark raised an exception: {exception}")
 
     def test_negative_values_benchmark(self):
@@ -217,7 +213,7 @@ class TestTimerRegressionEnginesEdgeCases(unittest.TestCase):
                 1, neg_x, neg_y, [1], [1], 1
             )
             self.assertIsInstance(timing_result, (dict, float, tuple))
-        except Exception as exception:
+        except Exception as exception:  # pylint: disable=broad-exception-caught
             self.fail(f"Negative values benchmark raised an exception: {exception}")
 
     def test_zero_values_benchmark(self):
@@ -230,7 +226,7 @@ class TestTimerRegressionEnginesEdgeCases(unittest.TestCase):
                 1, zero_x, zero_y, [1], [1], 1
             )
             self.assertIsInstance(timing_result, (dict, float, tuple))
-        except Exception as exception:
+        except Exception as exception:  # pylint: disable=broad-exception-caught
             self.fail(f"Zero values benchmark raised an exception: {exception}")
 
     def test_format_time_special_values(self):
@@ -240,7 +236,7 @@ class TestTimerRegressionEnginesEdgeCases(unittest.TestCase):
             try:
                 formatted = format_time(value)
                 self.assertIsInstance(formatted, str)
-            except Exception:
+            except Exception:  # pylint: disable=broad-exception-caught
                 pass
 
     def test_large_dataset_performance(self):
@@ -253,7 +249,7 @@ class TestTimerRegressionEnginesEdgeCases(unittest.TestCase):
                 1, large_x, large_y, [1], [1], 1
             )
             self.assertIsInstance(timing_result, (dict, float, tuple))
-        except Exception as exception:
+        except Exception as exception:  # pylint: disable=broad-exception-caught
             self.fail(f"Large dataset performance test raised an exception: {exception}")
 
     def test_comprehensive_benchmark_edge_cases(self):
@@ -263,7 +259,7 @@ class TestTimerRegressionEnginesEdgeCases(unittest.TestCase):
                 self.identical_x, self.identical_y, [], [], 1
             )
             self.assertIsInstance(results, (dict, list, tuple))
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             pass
 
 

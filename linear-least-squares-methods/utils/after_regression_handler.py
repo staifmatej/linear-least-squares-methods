@@ -6,11 +6,7 @@ import select
 import tty
 import termios
 
-# Global constants used for bold text and red warning messages.
-S_BOLD = "\033[1m"
-E_BOLD = "\033[0m"
-S_RED = "\033[91m"
-E_RED = "\033[0m"
+from constants import S_BOLD, S_RED, E_BOLD, E_RED
 
 
 def print_press_enter_to_continue():
@@ -23,7 +19,6 @@ def print_press_enter_to_continue():
             return
     except NameError:
         pass  # Not in IPython/Jupyter
-    
     try:
         # Save terminal settings
         old_settings = termios.tcgetattr(sys.stdin)
@@ -49,7 +44,7 @@ def print_press_enter_to_continue():
         termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
         print("\rPress Enter to continue...    ")
 
-    except (ImportError, OSError, Exception):
+    except (ImportError, OSError, RuntimeError):
         # Fallback for systems without select/termios
         input("\nPress Enter to continue...")
 
@@ -139,7 +134,7 @@ def print_selected_configurations(engine_choice, regression_types, function_type
     print_press_enter_to_continue()
 
 
-def print_condition_numbers(results, regression_types, function_types):
+def print_condition_numbers(results, regression_types, function_types):  # pylint: disable=too-many-locals
     """Print condition numbers for all fitted models."""
     regression_mapping = {
         1: "Linear regression",
@@ -154,6 +149,43 @@ def print_condition_numbers(results, regression_types, function_types):
         13: "Log-Sqrt", 14: "Mixed", 15: "Poly-Log", 16: "Volatility Mix"
     }
 
+    def get_condition_status(cond_num):
+        """Inner function to get color and status for condition number."""
+        if cond_num >= 1e15:
+            return S_RED, "SINGULAR/EXTREMELY ILL-CONDITIONED"
+        if cond_num >= 1e13:
+            return S_RED, "POORLY CONDITIONED"
+        if cond_num >= 1e10:
+            return "\033[93m", "MODERATELY CONDITIONED"  # Yellow
+        return "\033[92m", "WELL CONDITIONED"  # Green
+
+    def extract_condition_number(result):
+        """Inner function to extract condition number from result."""
+        condition_num = None
+        model = result.get('model')
+        if model and hasattr(model, 'condition_number') and model.condition_number is not None:
+            condition_num = model.condition_number
+        elif result.get('condition_number') is not None:
+            condition_num = result.get('condition_number')
+        return condition_num
+
+    def print_condition_result(reg_type, func_type, condition_num):
+        """Inner function to print condition number results."""
+        reg_name = regression_mapping[reg_type]
+        func_name = function_mapping[func_type]
+        color, status = get_condition_status(condition_num)
+
+        print(f"\n{S_BOLD}{reg_name} - {func_name}:{E_BOLD}")
+        print(f"   Condition number: {color}{condition_num:.2e}{E_RED}")
+        print(f"   Status: {color}{status}{E_RED}")
+
+    def print_na_result(reg_type, func_type):
+        """Inner function to print N/A results."""
+        reg_name = regression_mapping[reg_type]
+        func_name = function_mapping[func_type]
+        print(f"\n{S_BOLD}{reg_name} - {func_name}:{E_BOLD}")
+        print(f"   Condition number: {S_RED}N/A (not computed for this method){E_RED}")
+
     print("\n═════ CONDITION NUMBERS ══════")
 
     found_any = False
@@ -161,42 +193,13 @@ def print_condition_numbers(results, regression_types, function_types):
         for func_type in function_types:
             result = results.get((reg_type, func_type))
             if result is not None and result.get('status') not in ['not_implemented', 'failed', 'not_available']:
-                # Check both model.condition_number and direct condition_number key
-                condition_num = None
-                model = result.get('model')
-                if model and hasattr(model, 'condition_number') and model.condition_number is not None:
-                    condition_num = model.condition_number
-                elif result.get('condition_number') is not None:
-                    condition_num = result.get('condition_number')
-                
+                condition_num = extract_condition_number(result)
+
                 if condition_num is not None:
-                    reg_name = regression_mapping[reg_type]
-                    func_name = function_mapping[func_type]
-                    cond_num = condition_num
-
-                    # Color coding based on condition number
-                    if cond_num >= 1e15:
-                        color = S_RED
-                        status = "SINGULAR/EXTREMELY ILL-CONDITIONED"
-                    elif cond_num >= 1e13:
-                        color = S_RED
-                        status = "POORLY CONDITIONED"
-                    elif cond_num >= 1e10:
-                        color = "\033[93m"  # Yellow
-                        status = "MODERATELY CONDITIONED"
-                    else:
-                        color = "\033[92m"  # Green
-                        status = "WELL CONDITIONED"
-
-                    print(f"\n{S_BOLD}{reg_name} - {func_name}:{E_BOLD}")
-                    print(f"   Condition number: {color}{cond_num:.2e}{E_RED}")
-                    print(f"   Status: {color}{status}{E_RED}")
+                    print_condition_result(reg_type, func_type, condition_num)
                     found_any = True
                 elif result:
-                    reg_name = regression_mapping[reg_type]
-                    func_name = function_mapping[func_type]
-                    print(f"\n{S_BOLD}{reg_name} - {func_name}:{E_BOLD}")
-                    print(f"   Condition number: {S_RED}N/A (not computed for this method){E_RED}")
+                    print_na_result(reg_type, func_type)
                     found_any = True
 
     if not found_any:
@@ -214,9 +217,9 @@ def print_condition_numbers(results, regression_types, function_types):
 
 def print_coefficients(results, regression_types, function_types):
     """Print coefficients for all successful results with enhanced formatting."""
-    
+
     print("\n═══ REGRESSION COEFFICIENTS ═══")
-    
+
     regression_names = {1: "Linear", 2: "Ridge", 3: "Lasso", 4: "ElasticNet"}
     function_names = {
         1: "Linear", 2: "Quadratic", 3: "Cubic", 4: "Quartic",
@@ -225,31 +228,31 @@ def print_coefficients(results, regression_types, function_types):
         11: "Square Root", 12: "Inverse", 13: "Log-Sqrt",
         14: "Mixed", 15: "Poly-Log", 16: "Volatility Mix"
     }
-    
+
     found_any = False
     for reg_type in regression_types:
         for func_type in function_types:
             result = results.get((reg_type, func_type))
             if result is None:
                 continue
-            
-            # Handle different result formats    
+
+            # Handle different result formats
             if result.get('status') in ['not_implemented', 'failed', 'not_available']:
                 continue
-                
+
             coeffs = result.get('coefficients', [])
             if coeffs is None or (hasattr(coeffs, '__len__') and len(coeffs) == 0):
                 continue
-                
+
             found_any = True
-            
+
             # Model name header
-            model_name = f"{regression_names[reg_type]} - {function_names.get(func_type, f"Function {func_type}")}"
-            print(f"{S_BOLD}{model_name}:{E_BOLD}")
-            
+            model_name = f"{regression_names[reg_type]} - {function_names.get(func_type, f'Function {func_type}')}"
+            print(f"{S_BOLD}{model_name}{E_BOLD}")
+
             # Intercept
             print(f"   Intercept:      {coeffs[0]:.6f}")
-            
+
             # Coefficients
             for i, coeff in enumerate(coeffs[1:], 1):
                 if i <= 3:
@@ -258,10 +261,9 @@ def print_coefficients(results, regression_types, function_types):
                 else:
                     coeff_name = f"Coefficient {i}"
                     print(f"   {coeff_name}:  {coeff:.6f}")
-    
-    if not found_any:
-        print(f"\nNo coefficients available to display.")
-    
-    print("═══════════════════════════════")
 
+    if not found_any:
+        print("\nNo coefficients available to display.")
+
+    print("═══════════════════════════════")
     print_press_enter_to_continue()

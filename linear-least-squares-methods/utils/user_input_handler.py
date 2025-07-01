@@ -1,10 +1,7 @@
 """User input handling utilities for regression and function type selection."""
 
-# Global constants used for bold text and red warning messages.
-S_BOLD = "\033[1m"
-E_BOLD = "\033[0m"
-S_RED = "\033[91m"
-E_RED = "\033[0m"
+from constants import S_BOLD, S_RED, E_BOLD, E_RED
+
 
 class UserInputHandler:
     """Class for handling user input selection for regression engines, types, and functions."""
@@ -22,7 +19,7 @@ class UserInputHandler:
         print(f"{S_BOLD}* Lasso/ElasticNet use sklearn coordinate descent{E_BOLD}")
         print("════════════════════════════════")
 
-        while 1:
+        while True:
             try:
                 choice = int(input("\nChoose option (1-3): "))
                 if 1 <= choice <= 3:
@@ -41,7 +38,7 @@ class UserInputHandler:
         print("4. Elastic Net Regression (CoordinateDescent)")
         print("════════════════════════════════\n")
 
-        while 1:
+        while True:
             user_input = input(
                 f"Enter types of regression you would you like to try: (for example: {S_BOLD}all{E_BOLD} or {S_BOLD}1,2,3{E_BOLD} or {S_BOLD}4{E_BOLD}): ").strip()
 
@@ -89,8 +86,7 @@ class UserInputHandler:
         print("16. Volatility Mix (y = a + b*sqrt(x) + c/x)")  # GARCH approximation.
         print("════════════════════════════════\n")
 
-
-        while 1:
+        while True:
             user_input = input(
                 f"Enter types of functions you would you like to fit: (for example: {S_BOLD}all{E_BOLD} or {S_BOLD}1,2,3{E_BOLD} or {S_BOLD}9{E_BOLD}): ").strip()
 

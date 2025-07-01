@@ -4,14 +4,26 @@ import warnings
 import numpy as np
 from sklearn.linear_model import Lasso, ElasticNet
 
-# Suppress common warnings
+from constants import S_RED, E_RED
+
 warnings.filterwarnings('ignore', message='Objective did not converge')
 
-# Global constants used for bold text and red warning messages.
-S_BOLD = "\033[1m"
-E_BOLD = "\033[0m"
-S_RED = "\033[91m"
-E_RED = "\033[0m"
+
+def generate_polynomial_features(X, degree):
+    """Generate polynomial features up to specified degree with stable scaling."""
+    X_flat = X.flatten() if X.ndim > 1 else X
+    # Always normalize to [0, 1] range for better numerical stability
+    x_min, x_max = X_flat.min(), X_flat.max()
+    if x_max - x_min > 1e-10:
+        # Normalize to [0, 1] range instead of [-1, 1]
+        X_normalized = (X_flat - x_min) / (x_max - x_min)
+    else:
+        X_normalized = X_flat
+    polynomial_features = []
+    for d in range(1, degree + 1):
+        feature = X_normalized ** d
+        polynomial_features.append(feature)
+    return np.column_stack(polynomial_features)
 
 
 def fit_error_handling(coefficients):
@@ -342,9 +354,7 @@ class RidgeRegression(LeastSquares):
                 X_with_intercept = np.column_stack([np.ones(x.shape[0]), x])
             else:
                 # Generate polynomial features for prediction
-                from utils.run_regression import RegressionRun
-                runner = RegressionRun(1, [], [])  # Temporary runner to access method
-                X_poly = runner._generate_polynomial_features(x, self.degree)
+                X_poly = generate_polynomial_features(x, self.degree)
                 X_with_intercept = np.column_stack([np.ones(x.shape[0]), X_poly])
         else:
             # Regular linear features
@@ -370,6 +380,7 @@ class LassoRegression(LeastSquares):
         self.max_iter = max_iter
         self.tol = tol
         self.coefficients = None
+        self.model = None  # For sklearn models
 
     def fit(self, x, y):
         """Fit Lasso regression model using sklearn Lasso."""
@@ -384,7 +395,7 @@ class LassoRegression(LeastSquares):
         lasso = Lasso(alpha=self.alpha, max_iter=self.max_iter,
                       tol=self.tol, fit_intercept=True)
         lasso.fit(x, y)
-        
+
         # Store sklearn model for prediction
         self.model = lasso
         # Store coefficients in our format [intercept, coef1, coef2, ...]
@@ -395,20 +406,17 @@ class LassoRegression(LeastSquares):
         """Prediction using sklearn Lasso model."""
         if not hasattr(self, 'model') or self.model is None:
             raise ValueError("Model not fitted yet. Call fit() first.")
-            
+
         x = np.array(x)
         if x.ndim == 1:
             x = x.reshape(-1, 1)
-        
+
         # Check if this is polynomial regression (has degree attribute)
         if hasattr(self, 'degree') and self.degree > 1:
             # Check if we already have polynomial features (from visualization)
             if x.shape[1] != self.degree:
-                # Generate polynomial features for prediction
-                from utils.run_regression import RegressionRun
-                runner = RegressionRun(1, [], [])  # Temporary runner to access method
-                x = runner._generate_polynomial_features(x, self.degree)
-            
+                x = generate_polynomial_features(x, self.degree)
+
         return self.model.predict(x)
 
 
@@ -422,6 +430,7 @@ class ElasticNetRegression(LeastSquares):
         self.max_iter = max_iter
         self.tol = tol
         self.coefficients = None
+        self.model = None  # For sklearn models
 
     def fit(self, x, y):
         """Fit ElasticNet regression model using sklearn ElasticNet."""
@@ -436,7 +445,7 @@ class ElasticNetRegression(LeastSquares):
         elasticnet = ElasticNet(alpha=self.alpha, l1_ratio=self.l1_ratio,
                                max_iter=self.max_iter, tol=self.tol, fit_intercept=True)
         elasticnet.fit(x, y)
-        
+
         # Store sklearn model for prediction
         self.model = elasticnet
         # Store coefficients in our format [intercept, coef1, coef2, ...]
@@ -447,18 +456,16 @@ class ElasticNetRegression(LeastSquares):
         """Prediction using sklearn ElasticNet model."""
         if not hasattr(self, 'model') or self.model is None:
             raise ValueError("Model not fitted yet. Call fit() first.")
-            
+
         x = np.array(x)
         if x.ndim == 1:
             x = x.reshape(-1, 1)
-        
+
         # Check if this is polynomial regression (has degree attribute)
         if hasattr(self, 'degree') and self.degree > 1:
             # Check if we already have polynomial features (from visualization)
             if x.shape[1] != self.degree:
                 # Generate polynomial features for prediction
-                from utils.run_regression import RegressionRun
-                runner = RegressionRun(1, [], [])  # Temporary runner to access method
-                x = runner._generate_polynomial_features(x, self.degree)
-            
+                x = generate_polynomial_features(x, self.degree)
+
         return self.model.predict(x)
