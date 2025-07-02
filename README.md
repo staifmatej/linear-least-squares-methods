@@ -70,6 +70,7 @@ Run the `main.py` file from the root folder and follow the instructions in the t
     - `source venv/bin/activate`
     - `pip install -r requirements.txt`
 
+- Run program, test unit tests or check for PEP8 score:
  
     - `python main.py` (to start program)
     - `pytest` (to run unit tests)
