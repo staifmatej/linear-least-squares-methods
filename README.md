@@ -69,10 +69,11 @@ Run the `main.py` file from the root folder and follow the instructions in the t
     - `python3 -m venv venv`
     - `source venv/bin/activate`
     - `pip install -r requirements.txt`
+
  
-    - `python main.py` (for start program)
-    - `pytest` (for testing unit tests)
-    - `pylint . --disable=C0301,C0103` (for PEP8 score)
+    - `python main.py` (to start program)
+    - `pytest` (to run unit tests)
+    - `pylint . --disable=C0301,C0103` (PEP8 score)
 
 ## Testing
 
