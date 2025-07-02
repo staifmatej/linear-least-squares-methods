@@ -44,17 +44,15 @@ For a practical demonstration of the program without needing to run it locally, 
 
 For a more detailed description of the methodology, results, and analysis, please refer to the [staifmatej-report.pdf](staifmatej-report.pdf) file included in this repository.
 
-## Recommendation
 
 ## Usage
 
 Run the `main.py` file from the root folder and follow the instructions in the terminal.
 
-When running `manual` mode with more trials, warnings may appear - this is normal and nothing to worry about. It simply means the model is searching for hyperparameter types that don't match, and the model reports this. This is expected behavior and the optimization will complete successfully regardless.
+**Recommendation**: For the fastest way to try the program, it is advisable to use the pre-selected "Use example dataset" option.
 
 
-**Notes:**
-In `auto` mode, the most optimal hyperparameters found through Bayesian Optimization are preconfigured.
+
 
 ## Installation
 
