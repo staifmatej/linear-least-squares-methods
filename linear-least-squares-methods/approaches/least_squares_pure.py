@@ -718,6 +718,9 @@ class LassoRegression:
     def fit(self, X, y):
         """Fit lasso regression model using sklearn."""
         # sklearn's Lasso can handle lists or arrays
+        # Make sure X is in the right format
+        if hasattr(X, 'tolist'):
+            X = X.tolist()
         self.model.fit(X, y)
 
         # Store coefficients in the same format as other models
@@ -727,33 +730,8 @@ class LassoRegression:
 
     def predict(self, X):
         """Predict using the fitted lasso model."""
-        # Convert to pure Python list first for processing
-        if hasattr(X, 'tolist'):
-            X_list = X.tolist()
-        elif not isinstance(X, list):
-            X_list = list(X)
-        else:
-            X_list = X
-
-        # Handle both 1D and 2D inputs
-        if not isinstance(X_list[0], list):
-            X_list = [[x] for x in X_list]
-
-        # Calculate expected number of features from coefficients
-        n_coeffs = len(self.coefficients)
-        expected_features = n_coeffs - 1  # subtract intercept
-
-        if len(X_list[0]) == 1 and expected_features > 1:
-            # This is polynomial regression - generate polynomial features
-            degree = expected_features
-            x_flat = [row[0] for row in X_list]
-            x_min = min(x_flat)
-            x_max = max(x_flat)
-            X_poly = generate_polynomial_features_pure(x_flat, degree, x_min, x_max, degree > 3)
-            X = X_poly  # Use for sklearn prediction
-        else:
-            X = X_list
-
+        # Sklearn model expects the same format as during training
+        # So we just pass the data directly without any transformation
         return self.model.predict(X)
 
 
@@ -771,6 +749,9 @@ class ElasticNetRegression:
     def fit(self, X, y):
         """Fit elastic net regression model using sklearn."""
         # sklearn's ElasticNet can handle lists or arrays
+        # Make sure X is in the right format
+        if hasattr(X, 'tolist'):
+            X = X.tolist()
         self.model.fit(X, y)
 
         # Store coefficients in the same format as other models
@@ -780,31 +761,6 @@ class ElasticNetRegression:
 
     def predict(self, X):
         """Predict using the fitted elastic net model."""
-        # Convert to pure Python list first for processing
-        if hasattr(X, 'tolist'):
-            X_list = X.tolist()
-        elif not isinstance(X, list):
-            X_list = list(X)
-        else:
-            X_list = X
-
-        # Handle both 1D and 2D inputs
-        if not isinstance(X_list[0], list):
-            X_list = [[x] for x in X_list]
-
-        # Calculate expected number of features from coefficients
-        n_coeffs = len(self.coefficients)
-        expected_features = n_coeffs - 1  # subtract intercept
-
-        if len(X_list[0]) == 1 and expected_features > 1:
-            # This is polynomial regression - generate polynomial features
-            degree = expected_features
-            x_flat = [row[0] for row in X_list]
-            x_min = min(x_flat)
-            x_max = max(x_flat)
-            X_poly = generate_polynomial_features_pure(x_flat, degree, x_min, x_max, degree > 3)
-            X = X_poly  # Use for sklearn prediction
-        else:
-            X = X_list
-
+        # Sklearn model expects the same format as during training
+        # So we just pass the data directly without any transformation
         return self.model.predict(X)

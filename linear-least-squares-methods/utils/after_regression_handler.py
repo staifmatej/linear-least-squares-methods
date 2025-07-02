@@ -210,7 +210,7 @@ def print_condition_numbers(results, regression_types, function_types):  # pylin
 
     print("═══════════════════════════════")
 
-    print("\nNote: Condition numbers are computed for Polynomial and Ridge regression only.")
+    print("\nNote: Condition numbers are computed for Linear and Ridge regression only.")
     print("Lasso and ElasticNet use coordinate descent and don't require condition number analysis.")
 
     print_press_enter_to_continue()

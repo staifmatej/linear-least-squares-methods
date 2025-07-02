@@ -88,6 +88,7 @@ def _matrix_multiply_transpose_simple(A_flat, B_flat, m, n, k):
 
     return result
 
+@njit
 def _convert_to_flat_2d(A, m, n):
     """Convert 2D list to flat array for @njit optimization."""
     A_flat = [0.0] * (m * n)
@@ -96,20 +97,17 @@ def _convert_to_flat_2d(A, m, n):
             A_flat[i * n + j] = float(A[i][j])  # Ensure all elements are floats
     return A_flat
 
+@njit
 def _convert_from_flat_2d(result_flat, rows, cols):
     """Convert flat array back to 2D list for @njit optimization."""
-    result = []
-    for i in range(rows):
-        row = []
-        for j in range(cols):
-            row.append(0.0)
-        result.append(row)
-
+    result = zeros_2d(rows, cols)  # Use the existing @njit function
+    
     for i in range(rows):
         for j in range(cols):
             result[i][j] = result_flat[i * cols + j]
     return result
 
+@njit
 def matrix_multiply_transpose_numba(A, B):
     """Compute A^T * B using DIRECT @njit flat arrays - NO FALLBACK, NO NUMPY."""
     m = len(A)
@@ -142,6 +140,7 @@ def _matrix_vector_multiply_transpose_simple(A_flat, b, m, n):
 
     return result
 
+@njit
 def matrix_vector_multiply_transpose_numba(A, b):
     """Compute A^T * b using DIRECT @njit flat arrays - NO FALLBACK, NO NUMPY."""
     m = len(A)
@@ -165,6 +164,7 @@ def _matrix_vector_multiply_flat(A_flat, v, m, n):
 
     return result
 
+@njit
 def matrix_vector_multiply_numba(A, v):
     """Compute A * v using DIRECT @njit - NO FALLBACK."""
     m = len(A)
@@ -225,6 +225,7 @@ def _solve_linear_system_flat(A_flat, b, n):
 
     return x
 
+@njit
 def solve_linear_system_numba(A, b):
     """Solve Ax = b using DIRECT @njit flat arrays - NO FALLBACK, NO NUMPY."""
     n = len(A)
@@ -278,6 +279,7 @@ def _qr_decomposition_flat(A_flat, m, n):
 
     return Q_flat, R_flat
 
+@njit
 def qr_decomposition_numba(A):
     """QR decomposition using DIRECT @njit flat arrays - NO FALLBACK, NO NUMPY."""
     m = len(A)
@@ -294,6 +296,7 @@ def qr_decomposition_numba(A):
     R = _convert_from_flat_2d(R_flat, n, n)
     return Q, R
 
+@njit
 def _back_substitution_flat(R_flat, b, n):
     """@njit back substitution using flat array - simplified."""
     x = [0.0] * n
@@ -309,6 +312,7 @@ def _back_substitution_flat(R_flat, b, n):
 
     return x
 
+@njit
 def back_substitution_numba(R, b):
     """Solve Rx = b using DIRECT @njit - NO FALLBACK."""
     n = len(R)
@@ -353,6 +357,7 @@ def _eigenvalues_power_method_flat(A_flat, n, max_iter=50000):
 
     return [lambda_max, lambda_max / 1000.0]
 
+@njit
 def eigenvalues_power_method_numba(A, max_iter=50000):
     """Eigenvalues using DIRECT @njit - NO FALLBACK."""
     n = len(A)
@@ -493,6 +498,7 @@ def _eigenvalues_power_method_pure_python(A, max_iter=50000):
     lambda_max = sum(v[i] * Av[i] for i in range(n))
     return [lambda_max, lambda_max / 1000.0]
 
+@njit
 def _generate_polynomial_features_flat(x, degree, x_min, x_max, normalize):
     """Generate polynomial features as flat array for @njit."""
     n = len(x)
@@ -578,14 +584,16 @@ def _compute_predictions_core(X_with_intercept, coefficients):
         predictions[i] = y_pred
     return predictions
 
+@njit
 def _convert_flat_to_polynomial_features(flat_features, n, degree):
     """Convert flat polynomial features to 2D list for @njit optimization."""
-    polynomial_features = [[0.0 for _ in range(degree)] for _ in range(n)]
+    polynomial_features = zeros_2d(n, degree)  # Use existing @njit function
     for i in range(n):
         for d in range(degree):
             polynomial_features[i][d] = flat_features[i * degree + d]
     return polynomial_features
 
+@njit
 def generate_polynomial_features_numba(x, degree, x_min, x_max, normalize):
     """Generate polynomial features using DIRECT @njit - NO FALLBACK."""
     # DIRECT @njit execution - NO FALLBACK
@@ -977,6 +985,10 @@ class LinearRegression:
 
     def _normalize_x_values(self, x, x_min, x_max, degree):
         """Normalize x values for better numerical stability using @njit."""
+        # Handle 2D input (already transformed features)
+        if isinstance(x, list) and len(x) > 0 and isinstance(x[0], list):
+            # For already transformed features, return as is
+            return x
         return _normalize_x_values_core(x, x_min, x_max, degree)
 
     def _generate_polynomial_features_core(self, x_normalized, degree):
@@ -985,6 +997,11 @@ class LinearRegression:
 
     def _generate_polynomial_features(self, x):
         """Generate polynomial features consistent with NumPy approach."""
+        # Handle 2D input (already transformed features)
+        if isinstance(x, list) and len(x) > 0 and isinstance(x[0], list):
+            # For already transformed features, return as is
+            return x
+
         # Apply normalization for degree > 3 using @njit function
         x_normalized = self._normalize_x_values(x, self.x_min, self.x_max, self.degree)
 
@@ -1122,6 +1139,9 @@ class LassoRegression:
     def fit(self, X, y):
         """Fit lasso regression model using sklearn."""
         # sklearn's Lasso can handle lists or arrays
+        # Make sure X is in the right format
+        if hasattr(X, 'tolist'):
+            X = X.tolist()
         self.model.fit(X, y)
 
         # Store coefficients in the same format as other models
@@ -1131,33 +1151,8 @@ class LassoRegression:
 
     def predict(self, X):
         """Predict using the fitted lasso model."""
-        # Convert to pure Python list first for processing
-        if hasattr(X, 'tolist'):
-            X_list = X.tolist()
-        elif not isinstance(X, list):
-            X_list = list(X)
-        else:
-            X_list = X
-
-        # Handle both 1D and 2D inputs
-        if not isinstance(X_list[0], list):
-            X_list = [[x] for x in X_list]
-
-        # Calculate expected number of features from coefficients
-        n_coeffs = len(self.coefficients)
-        expected_features = n_coeffs - 1  # subtract intercept
-
-        if len(X_list[0]) == 1 and expected_features > 1:
-            # This is polynomial regression - generate polynomial features
-            degree = expected_features
-            x_flat = [row[0] for row in X_list]
-            x_min = min(x_flat)
-            x_max = max(x_flat)
-            X_poly = generate_polynomial_features_numba(x_flat, degree, x_min, x_max, degree > 3)
-            X = X_poly  # Use for sklearn prediction
-        else:
-            X = X_list
-
+        # Sklearn model expects the same format as during training
+        # So we just pass the data directly without any transformation
         return self.model.predict(X)
 
 
@@ -1175,6 +1170,9 @@ class ElasticNetRegression:
     def fit(self, X, y):
         """Fit elastic net regression model using sklearn."""
         # sklearn's ElasticNet can handle lists or arrays
+        # Make sure X is in the right format
+        if hasattr(X, 'tolist'):
+            X = X.tolist()
         self.model.fit(X, y)
 
         # Store coefficients in the same format as other models
@@ -1184,31 +1182,6 @@ class ElasticNetRegression:
 
     def predict(self, X):
         """Predict using the fitted elastic net model."""
-        # Convert to pure Python list first for processing
-        if hasattr(X, 'tolist'):
-            X_list = X.tolist()
-        elif not isinstance(X, list):
-            X_list = list(X)
-        else:
-            X_list = X
-
-        # Handle both 1D and 2D inputs
-        if not isinstance(X_list[0], list):
-            X_list = [[x] for x in X_list]
-
-        # Calculate expected number of features from coefficients
-        n_coeffs = len(self.coefficients)
-        expected_features = n_coeffs - 1  # subtract intercept
-
-        if len(X_list[0]) == 1 and expected_features > 1:
-            # This is polynomial regression - generate polynomial features
-            degree = expected_features
-            x_flat = [row[0] for row in X_list]
-            x_min = min(x_flat)
-            x_max = max(x_flat)
-            X_poly = generate_polynomial_features_numba(x_flat, degree, x_min, x_max, degree > 3)
-            X = X_poly  # Use for sklearn prediction
-        else:
-            X = X_list
-
+        # Sklearn model expects the same format as during training
+        # So we just pass the data directly without any transformation
         return self.model.predict(X)

@@ -11,6 +11,8 @@ from constants import S_RED, E_RED
 
 # Suppress common warnings
 warnings.filterwarnings('ignore', message='Objective did not converge')
+warnings.filterwarnings('ignore', category=RuntimeWarning)
+
 
 # Set seaborn style for beautiful modern plots
 sns.set_theme(style="whitegrid", palette="Set2")
@@ -205,9 +207,6 @@ class VisualizationData:
                         if is_sklearn_wrapper and hasattr(model, 'model'):
                             # Use the underlying sklearn model for prediction
                             y_pred_smooth = model.model.predict(X_smooth_transformed)
-                        elif is_numba_python or is_pure_python:
-                            # For numba and pure python models, use direct prediction
-                            y_pred_smooth = model.predict(X_smooth_transformed)
                         else:
                             y_pred_smooth = model.predict(X_smooth_transformed)
 
@@ -429,9 +428,8 @@ class VisualizationData:
                             )
 
                         if is_sklearn_wrapper and hasattr(model, 'model'):
+                            # Use the underlying sklearn model for prediction
                             y_pred_smooth = model.model.predict(X_smooth_transformed)
-                        elif is_numba_python or is_pure_python:
-                            y_pred_smooth = model.predict(X_smooth_transformed)
                         else:
                             y_pred_smooth = model.predict(X_smooth_transformed)
 
@@ -461,15 +459,18 @@ class VisualizationData:
                         degree = result.get('degree', 1)
 
                         if is_pure_python or is_numba_python:
-                            x_smooth_list = x_smooth.tolist()
-                            X_smooth_poly = []
-                            for x in x_smooth_list:
-                                row = []
-                                for d in range(1, degree + 1):
-                                    row.append(x ** d)
-                                X_smooth_poly.append(row)
+                            # Use the same polynomial feature generation as the engine
+                            # Use generate_polynomial_features directly
+                            X_smooth_poly_np = generate_polynomial_features(x_smooth.reshape(-1, 1), degree)
+                            X_smooth_poly = X_smooth_poly_np.tolist()
 
-                            y_pred_smooth = model.predict(X_smooth_poly)
+                            # For sklearn wrappers in Pure Python, use underlying sklearn model
+                            if is_sklearn_wrapper and hasattr(model, 'model'):
+                                # Convert to numpy for sklearn
+                                X_smooth_poly_np = np.array(X_smooth_poly)
+                                y_pred_smooth = model.model.predict(X_smooth_poly_np)
+                            else:
+                                y_pred_smooth = model.predict(X_smooth_poly)
                             y_pred_smooth = self._ensure_numpy_array(y_pred_smooth)
                         else:
                             # Use the same polynomial feature generation as the engine

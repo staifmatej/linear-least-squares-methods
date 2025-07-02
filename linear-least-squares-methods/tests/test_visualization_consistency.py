@@ -143,7 +143,12 @@ class TestVisualizationConsistency(unittest.TestCase):
 
                             # Test prediction
                             if hasattr(model, 'predict'):
-                                pred = model.predict(X_test)
+                                # For quadratic function, generate polynomial features
+                                if engine == 3:  # Pure engine
+                                    X_test_poly = np.column_stack([X_test, X_test**2])
+                                    pred = model.predict(X_test_poly)
+                                else:
+                                    pred = model.predict(X_test)
                                 predictions[engine] = pred
                                 print(f"  {engine_name}: {pred}")
                             else:

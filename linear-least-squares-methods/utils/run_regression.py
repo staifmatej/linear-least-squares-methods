@@ -122,7 +122,6 @@ class RegressionRun:
     # pylint: disable=duplicate-code,too-many-return-statements
     def _transform_features_for_function_pure(self, X, y, function_type):
         """Transform features for special functions using pure Python."""
-
         X_flat = X.flatten() if hasattr(X, 'flatten') else [item for sublist in X for item in sublist] if isinstance(
             X[0], list) else X
         y_list = y.tolist() if hasattr(y, 'tolist') else list(y)
@@ -332,7 +331,8 @@ class RegressionRun:
                     'status': 'success',
                     'engine': 'numba',
                     'model': model,
-                    'degree': degree
+                    'degree': degree,
+                    'condition_number': getattr(model, 'condition_number', None)
                 }
 
             if regression_type == 2:  # Ridge regression
@@ -351,7 +351,8 @@ class RegressionRun:
                     'status': 'success',
                     'engine': 'numba',
                     'model': model,
-                    'degree': degree
+                    'degree': degree,
+                    'condition_number': getattr(model, 'condition_number', None)
                 }
 
             if regression_type == 3:  # Lasso regression
@@ -369,7 +370,8 @@ class RegressionRun:
                     'status': 'success',
                     'engine': 'numba',
                     'model': model,
-                    'degree': degree
+                    'degree': degree,
+                    'condition_number': getattr(model, 'condition_number', None)
                 }
 
             if regression_type == 4:  # ElasticNet regression
@@ -387,7 +389,8 @@ class RegressionRun:
                     'status': 'success',
                     'engine': 'numba',
                     'model': model,
-                    'degree': degree
+                    'degree': degree,
+                    'condition_number': getattr(model, 'condition_number', None)
                 }
 
         else:
@@ -406,7 +409,8 @@ class RegressionRun:
                         'engine': 'numba',
                         'model': model,
                         'degree': 1,
-                        'is_transformed': True
+                        'is_transformed': True,
+                        'condition_number': getattr(model, 'condition_number', None)
                     }
 
                 if regression_type == 2:  # Ridge regression
@@ -419,7 +423,8 @@ class RegressionRun:
                         'engine': 'numba',
                         'model': model,
                         'degree': 1,
-                        'is_transformed': True
+                        'is_transformed': True,
+                        'condition_number': getattr(model, 'condition_number', None)
                     }
 
                 if regression_type == 3:  # Lasso regression
@@ -432,7 +437,8 @@ class RegressionRun:
                         'engine': 'numba',
                         'model': model,
                         'degree': 1,
-                        'is_transformed': True
+                        'is_transformed': True,
+                        'condition_number': getattr(model, 'condition_number', None)
                     }
 
                 if regression_type == 4:  # ElasticNet regression
@@ -445,7 +451,8 @@ class RegressionRun:
                         'engine': 'numba',
                         'model': model,
                         'degree': 1,
-                        'is_transformed': True
+                        'is_transformed': True,
+                        'condition_number': getattr(model, 'condition_number', None)
                     }
 
             except (ValueError, RuntimeError, ArithmeticError) as e:
@@ -607,32 +614,6 @@ class RegressionRun:
 
         return polynomial_features
 
-    def _transform_features_for_function_pure(self, X, y, function_type):
-        """Transform features for special functions using pure Python."""
-
-        X_flat = X.flatten() if hasattr(X, 'flatten') else [item for sublist in X for item in sublist] if isinstance(X[0], list) else X
-        y_list = y.tolist() if hasattr(y, 'tolist') else list(y)
-
-        min_val = 1e-10
-
-        if function_type == 8:  # Log-Linear: y = a + b*log(x)
-            X_positive = [max(x, min_val) for x in X_flat]
-            X_transformed = [[math.log(x)] for x in X_positive]
-            return X_transformed, y_list
-
-        if function_type == 11:  # Square Root: y = a + b*sqrt(x)
-            X_positive = [max(x, 0) for x in X_flat]
-            X_transformed = [[math.sqrt(x)] for x in X_positive]
-            return X_transformed, y_list
-
-        if function_type == 12:  # Inverse: y = a + b/x
-            X_nonzero = [x if abs(x) > min_val else min_val for x in X_flat]
-            X_transformed = [[1.0 / x] for x in X_nonzero]
-            return X_transformed, y_list
-
-        # For other function types, just return linear transformation for simplicity
-        X_transformed = [[x] for x in X_flat]
-        return X_transformed, y_list
 
     def print_results(self):
         """Print summary of all regression results."""
