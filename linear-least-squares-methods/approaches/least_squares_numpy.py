@@ -89,6 +89,10 @@ class LeastSquares:
         elif self.type_regression == "LinearRegression":
             cond_number = self._calculate_standard_condition_number(X)
             self.condition_number = cond_number
+        else:
+            # For any other type, still try to compute condition number
+            cond_number = self._calculate_standard_condition_number(X)
+            self.condition_number = cond_number
 
         # Check condition number
         if cond_number <= 0:
@@ -257,12 +261,12 @@ class LinearRegression(LeastSquares):
         # Add small regularization for very high degree polynomials
         if self.degree > 5:
             self.alpha = 1e-8
+            original_type = self.type_regression
             self.type_regression = "RidgeRegression"
-
-        self.coefficients = self.multivariate_ols(X_polynomial, y)
-
-        # Reset to original type
-        self.type_regression = "LinearRegression"
+            self.coefficients = self.multivariate_ols(X_polynomial, y)
+            self.type_regression = original_type
+        else:
+            self.coefficients = self.multivariate_ols(X_polynomial, y)
 
         return self
 

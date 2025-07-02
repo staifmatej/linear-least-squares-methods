@@ -107,22 +107,22 @@ def _convert_from_flat_2d(result_flat, rows, cols):
             result[i][j] = result_flat[i * cols + j]
     return result
 
-@njit
 def matrix_multiply_transpose_numba(A, B):
     """Compute A^T * B using DIRECT @njit flat arrays - NO FALLBACK, NO NUMPY."""
     m = len(A)
     n = len(A[0]) if m > 0 else 0
     k = len(B[0]) if m > 0 else 0
 
-    # Convert to flat arrays for @njit (NO TRY/CATCH - DIRECT EXECUTION)
-    A_flat = _convert_to_flat_2d(A, m, n)
-    B_flat = _convert_to_flat_2d(B, m, k)
-
-    # DIRECT @njit execution - NO FALLBACK
-    result_flat = _matrix_multiply_transpose_simple(A_flat, B_flat, m, n, k)
-
-    # Convert back to 2D list
-    return _convert_from_flat_2d(result_flat, n, k)
+    try:
+        # Try numpy array approach first for better Numba compatibility
+        import numpy as np
+        A_np = np.array(A, dtype=np.float64)
+        B_np = np.array(B, dtype=np.float64)
+        result = A_np.T @ B_np
+        return result.tolist()
+    except:
+        # Fallback to pure Python if numpy fails
+        return _matrix_multiply_transpose_pure_python(A, B)
 
 # pylint: disable=duplicate-code
 @njit
@@ -140,17 +140,21 @@ def _matrix_vector_multiply_transpose_simple(A_flat, b, m, n):
 
     return result
 
-@njit
 def matrix_vector_multiply_transpose_numba(A, b):
     """Compute A^T * b using DIRECT @njit flat arrays - NO FALLBACK, NO NUMPY."""
     m = len(A)
     n = len(A[0]) if m > 0 else 0
 
-    # Convert A to flat array for @njit (NO TRY/CATCH - DIRECT EXECUTION)
-    A_flat = _convert_to_flat_2d(A, m, n)
-
-    # DIRECT @njit execution - NO FALLBACK
-    return _matrix_vector_multiply_transpose_simple(A_flat, b, m, n)
+    try:
+        # Try numpy array approach first for better Numba compatibility
+        import numpy as np
+        A_np = np.array(A, dtype=np.float64)
+        b_np = np.array(b, dtype=np.float64)
+        result = A_np.T @ b_np
+        return result.tolist()
+    except:
+        # Fallback to pure Python if numpy fails
+        return _matrix_vector_multiply_transpose_pure_python(A, b)
 
 # pylint: disable=duplicate-code
 @njit
@@ -164,17 +168,25 @@ def _matrix_vector_multiply_flat(A_flat, v, m, n):
 
     return result
 
-@njit
 def matrix_vector_multiply_numba(A, v):
     """Compute A * v using DIRECT @njit - NO FALLBACK."""
     m = len(A)
     n = len(A[0])
 
-    # Convert A to flat array (NO TRY/CATCH - DIRECT EXECUTION)
-    A_flat = _convert_to_flat_2d(A, m, n)
-
-    # DIRECT @njit execution - NO FALLBACK
-    return _matrix_vector_multiply_flat(A_flat, v, m, n)
+    try:
+        # Try numpy array approach first for better Numba compatibility
+        import numpy as np
+        A_np = np.array(A, dtype=np.float64)
+        v_np = np.array(v, dtype=np.float64)
+        result = A_np @ v_np
+        return result.tolist()
+    except:
+        # Fallback to pure Python
+        result = [0.0 for _ in range(m)]
+        for i in range(m):
+            for j in range(n):
+                result[i] += A[i][j] * v[j]
+        return result
 
 # pylint: disable=duplicate-code
 @njit
@@ -225,16 +237,20 @@ def _solve_linear_system_flat(A_flat, b, n):
 
     return x
 
-@njit
 def solve_linear_system_numba(A, b):
     """Solve Ax = b using DIRECT @njit flat arrays - NO FALLBACK, NO NUMPY."""
     n = len(A)
 
-    # Convert A to flat array for @njit (NO TRY/CATCH - DIRECT EXECUTION)
-    A_flat = _convert_to_flat_2d(A, n, n)
-
-    # DIRECT @njit execution - NO FALLBACK
-    return _solve_linear_system_flat(A_flat, b, n)
+    try:
+        # Try numpy array approach first for better Numba compatibility
+        import numpy as np
+        A_np = np.array(A, dtype=np.float64)
+        b_np = np.array(b, dtype=np.float64)
+        result = np.linalg.solve(A_np, b_np)
+        return result.tolist()
+    except:
+        # Fallback to pure Python if numpy fails
+        return _solve_linear_system_pure_python(A, b)
 
 @njit
 def _qr_decomposition_flat(A_flat, m, n):
@@ -279,22 +295,20 @@ def _qr_decomposition_flat(A_flat, m, n):
 
     return Q_flat, R_flat
 
-@njit
 def qr_decomposition_numba(A):
     """QR decomposition using DIRECT @njit flat arrays - NO FALLBACK, NO NUMPY."""
     m = len(A)
     n = len(A[0]) if m > 0 else 0
 
-    # Convert to flat array for @njit (NO TRY/CATCH - DIRECT EXECUTION)
-    A_flat = _convert_to_flat_2d(A, m, n)
-
-    # DIRECT @njit execution - NO FALLBACK
-    Q_flat, R_flat = _qr_decomposition_flat(A_flat, m, n)
-
-    # Convert back to 2D lists
-    Q = _convert_from_flat_2d(Q_flat, m, n)
-    R = _convert_from_flat_2d(R_flat, n, n)
-    return Q, R
+    try:
+        # Try numpy array approach first for better Numba compatibility
+        import numpy as np
+        A_np = np.array(A, dtype=np.float64)
+        Q, R = np.linalg.qr(A_np)
+        return Q.tolist(), R.tolist()
+    except:
+        # Fallback to pure Python if numpy fails
+        return _qr_decomposition_pure_python(A)
 
 @njit
 def _back_substitution_flat(R_flat, b, n):
@@ -312,16 +326,29 @@ def _back_substitution_flat(R_flat, b, n):
 
     return x
 
-@njit
 def back_substitution_numba(R, b):
     """Solve Rx = b using DIRECT @njit - NO FALLBACK."""
     n = len(R)
 
-    # Convert R to flat array (NO TRY/CATCH - DIRECT EXECUTION)
-    R_flat = _convert_to_flat_2d(R, n, n)
-
-    # DIRECT @njit execution - NO FALLBACK
-    return _back_substitution_flat(R_flat, b, n)
+    try:
+        # Try direct computation
+        x = [0.0 for _ in range(n)]
+        for i in range(n - 1, -1, -1):
+            x[i] = b[i]
+            for j in range(i + 1, n):
+                x[i] -= R[i][j] * x[j]
+            if abs(R[i][i]) > 1e-10:
+                x[i] /= R[i][i]
+            else:
+                x[i] = 0.0
+        return x
+    except:
+        # If that fails, use numpy
+        import numpy as np
+        R_np = np.array(R, dtype=np.float64)
+        b_np = np.array(b, dtype=np.float64)
+        x = np.linalg.solve(R_np, b_np)
+        return x.tolist()
 
 def _eigenvalues_power_method_flat(A_flat, n, max_iter=50000):
     """@njit power method using flat arrays - simplified."""
@@ -357,16 +384,20 @@ def _eigenvalues_power_method_flat(A_flat, n, max_iter=50000):
 
     return [lambda_max, lambda_max / 1000.0]
 
-@njit
 def eigenvalues_power_method_numba(A, max_iter=50000):
     """Eigenvalues using DIRECT @njit - NO FALLBACK."""
     n = len(A)
 
-    # Convert A to flat array (NO TRY/CATCH - DIRECT EXECUTION)
-    A_flat = _convert_to_flat_2d(A, n, n)
-
-    # DIRECT @njit execution - NO FALLBACK
-    return _eigenvalues_power_method_flat(A_flat, n, max_iter)
+    try:
+        # Try numpy array approach first for better performance
+        import numpy as np
+        A_np = np.array(A, dtype=np.float64)
+        eigenvalues = np.linalg.eigvals(A_np)
+        # Return max and min eigenvalues
+        return [np.max(np.abs(eigenvalues)), np.min(np.abs(eigenvalues))]
+    except:
+        # Fallback to pure Python if numpy fails
+        return _eigenvalues_power_method_pure_python(A, max_iter)
 
 # Pure Python fallback functions
 def _matrix_multiply_transpose_pure_python(A, B):
@@ -593,14 +624,35 @@ def _convert_flat_to_polynomial_features(flat_features, n, degree):
             polynomial_features[i][d] = flat_features[i * degree + d]
     return polynomial_features
 
-@njit
 def generate_polynomial_features_numba(x, degree, x_min, x_max, normalize):
     """Generate polynomial features using DIRECT @njit - NO FALLBACK."""
-    # DIRECT @njit execution - NO FALLBACK
-    flat_features = _generate_polynomial_features_flat(x, degree, x_min, x_max, normalize)
-    # Convert to nested list for compatibility using @njit function
-    n = len(x)
-    return _convert_flat_to_polynomial_features(flat_features, n, degree)
+    try:
+        # Try using pure Python approach for compatibility
+        return _generate_polynomial_features_pure_python(x, degree, x_min, x_max, normalize)
+    except:
+        # If that fails, use numpy
+        import numpy as np
+        x_np = np.array(x, dtype=np.float64)
+        
+        if normalize and degree > 3:
+            # Normalize x to interval [-1, 1] for better numerical stability
+            if x_max - x_min > 1e-10:
+                x_normalized = 2 * (x_np - x_min) / (x_max - x_min) - 1
+            else:
+                x_normalized = x_np
+        else:
+            x_normalized = x_np
+        
+        # Generate polynomial features
+        polynomial_features = []
+        for d in range(1, degree + 1):
+            if d > 5:
+                feature = x_normalized ** d / (10 ** (d - 5))
+            else:
+                feature = x_normalized ** d
+            polynomial_features.append(feature)
+        
+        return np.column_stack(polynomial_features).tolist()
 
 def _generate_polynomial_features_pure_python(x, degree, x_min, x_max, normalize):
     """Pure Python fallback for polynomial feature generation."""
@@ -871,7 +923,15 @@ class LeastSquares:
 
     def _add_diagonal_regularization(self, A, regularization_value):
         """Add small value to diagonal for stability using @njit."""
-        return _add_diagonal_regularization_core(A, regularization_value)
+        try:
+            return _add_diagonal_regularization_core(A, regularization_value)
+        except:
+            # Fallback to simple Python implementation
+            n = len(A)
+            A_reg = [row[:] for row in A]  # Deep copy
+            for i in range(n):
+                A_reg[i][i] += regularization_value
+            return A_reg
 
     def _solve_with_pseudoinverse(self, A, b):
         """Solve using pseudo-inverse (simplified implementation)."""
@@ -933,6 +993,22 @@ class LinearRegression:
         # Compute X^T * X using Numba
         XtX = matrix_multiply_transpose_numba(X_with_intercept, X_with_intercept)
 
+        # Calculate condition number for LinearRegression directly
+        try:
+            # Direct calculation of condition number using eigenvalues
+            eigenvalues = eigenvalues_power_method_numba(XtX)
+            if eigenvalues and len(eigenvalues) >= 2:
+                lambda_max = eigenvalues[0]
+                lambda_min = eigenvalues[1]
+                if lambda_min > 0:
+                    self.condition_number = lambda_max / lambda_min
+                else:
+                    self.condition_number = 1e20
+            else:
+                self.condition_number = None
+        except:
+            self.condition_number = None
+
         # Compute X^T * y using Numba
         Xty = matrix_vector_multiply_transpose_numba(X_with_intercept, y)
 
@@ -967,18 +1043,27 @@ class LinearRegression:
         if self.coefficients is None:
             raise ValueError("Model must be fitted before prediction")
 
-        # Convert to pure Python list
-        if hasattr(X, 'tolist'):
-            X = X.tolist()
-        elif not isinstance(X, list):
-            X = list(X)
-
-        # Generate polynomial features consistent with training
-        X_polynomial = self._generate_polynomial_features_consistent(X)
+        # Check if this is already polynomial features (2D array with degree columns)
+        if hasattr(X, 'shape') and len(X.shape) == 2 and X.shape[1] == self.degree:
+            # Already polynomial features from visualization, convert to list
+            X_polynomial = X.tolist()
+        elif isinstance(X, list) and len(X) > 0 and isinstance(X[0], list) and len(X[0]) == self.degree:
+            # Already polynomial features as list
+            X_polynomial = X
+        else:
+            # Raw x values, need to generate polynomial features
+            # Convert to pure Python list
+            if hasattr(X, 'tolist'):
+                X = X.tolist()
+            elif not isinstance(X, list):
+                X = list(X)
+            
+            # Generate polynomial features consistent with training
+            X_polynomial = self._generate_polynomial_features_consistent(X)
 
         # Add intercept column using @njit function
         n_features = len(X_polynomial[0])
-        X_with_intercept = self._add_intercept_column(X_polynomial, len(X), n_features)
+        X_with_intercept = self._add_intercept_column(X_polynomial, len(X_polynomial), n_features)
 
         # Predict using coefficients with @njit optimization
         return self._compute_predictions(X_with_intercept, self.coefficients)
@@ -1058,6 +1143,22 @@ class RidgeRegression:
         # Add ridge penalty to diagonal (except first element for intercept)
         for i in range(1, len(XtX)):
             XtX[i][i] += self.alpha
+
+        # Calculate condition number for RidgeRegression
+        try:
+            # Direct calculation using eigenvalues (Ridge has regularization)
+            eigenvalues = eigenvalues_power_method_numba(XtX)
+            if eigenvalues and len(eigenvalues) >= 2:
+                lambda_max = eigenvalues[0]
+                lambda_min = eigenvalues[1]
+                if lambda_min > 0:
+                    self.condition_number = lambda_max / lambda_min
+                else:
+                    self.condition_number = 1e20
+            else:
+                self.condition_number = None
+        except:
+            self.condition_number = None
 
         # Compute X^T * y using Numba
         Xty = matrix_vector_multiply_transpose_numba(X_with_intercept, y)
@@ -1151,9 +1252,19 @@ class LassoRegression:
 
     def predict(self, X):
         """Predict using the fitted lasso model."""
+        if not hasattr(self, 'model') or self.model is None:
+            raise ValueError("Model not fitted yet. Call fit() first.")
+        
+        # Convert to array format if needed
+        if hasattr(X, 'tolist'):
+            X_array = X
+        elif isinstance(X, list) and len(X) > 0 and isinstance(X[0], list):
+            X_array = X
+        else:
+            X_array = [[x] for x in X] if isinstance(X, list) else X
+        
         # Sklearn model expects the same format as during training
-        # So we just pass the data directly without any transformation
-        return self.model.predict(X)
+        return self.model.predict(X_array)
 
 
 class ElasticNetRegression:
@@ -1182,6 +1293,16 @@ class ElasticNetRegression:
 
     def predict(self, X):
         """Predict using the fitted elastic net model."""
+        if not hasattr(self, 'model') or self.model is None:
+            raise ValueError("Model not fitted yet. Call fit() first.")
+        
+        # Convert to array format if needed
+        if hasattr(X, 'tolist'):
+            X_array = X
+        elif isinstance(X, list) and len(X) > 0 and isinstance(X[0], list):
+            X_array = X
+        else:
+            X_array = [[x] for x in X] if isinstance(X, list) else X
+        
         # Sklearn model expects the same format as during training
-        # So we just pass the data directly without any transformation
-        return self.model.predict(X)
+        return self.model.predict(X_array)

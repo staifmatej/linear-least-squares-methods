@@ -400,8 +400,7 @@ class RegressionRun:
 
                 if regression_type == 1:  # Linear regression
                     model = least_squares_numba.LinearRegression(degree=1)
-                    X_flat = [x[0] for x in X_transformed]
-                    model.fit(X_flat, y_transformed)
+                    model.fit(X_transformed, y_transformed)
                     coeffs = model.coefficients
                     return {
                         'coefficients': coeffs,

@@ -535,6 +535,14 @@ class LinearRegression:
         # Compute X^T * X using Pure Python
         XtX = matrix_multiply_transpose_pure(X_with_intercept, X_with_intercept)
 
+        # Calculate condition number for LinearRegression
+        try:
+            # Use LeastSquares helper to compute condition number
+            ls_helper = LeastSquares(type_regression="LinearRegression")
+            self.condition_number = ls_helper._condition_number(XtX)
+        except:
+            self.condition_number = None
+
         # Compute X^T * y using Pure Python
         Xty = matrix_vector_multiply_transpose_pure(X_with_intercept, y)
 
@@ -548,26 +556,35 @@ class LinearRegression:
         if self.coefficients is None:
             raise ValueError("Model must be fitted before prediction")
 
-        # Convert to pure Python list
-        if hasattr(X, 'tolist'):
-            X = X.tolist()
-        elif not isinstance(X, list):
-            X = list(X)
-
-        # Generate polynomial features consistent with training
-        X_polynomial = self._generate_polynomial_features_consistent(X)
+        # Check if this is already polynomial features (2D array with degree columns)
+        if hasattr(X, 'shape') and len(X.shape) == 2 and X.shape[1] == self.degree:
+            # Already polynomial features from visualization, convert to list
+            X_polynomial = X.tolist()
+        elif isinstance(X, list) and len(X) > 0 and isinstance(X[0], list) and len(X[0]) == self.degree:
+            # Already polynomial features as list
+            X_polynomial = X
+        else:
+            # Raw x values, need to generate polynomial features
+            # Convert to pure Python list
+            if hasattr(X, 'tolist'):
+                X = X.tolist()
+            elif not isinstance(X, list):
+                X = list(X)
+            
+            # Generate polynomial features consistent with training
+            X_polynomial = self._generate_polynomial_features_consistent(X)
 
         # Add intercept column
         n_features = len(X_polynomial[0])
-        X_with_intercept = create_zero_matrix(len(X), n_features + 1)
-        for i in range(len(X)):
+        X_with_intercept = create_zero_matrix(len(X_polynomial), n_features + 1)
+        for i in range(len(X_polynomial)):
             X_with_intercept[i][0] = 1.0  # intercept
             for j in range(n_features):
                 X_with_intercept[i][j + 1] = X_polynomial[i][j]
 
         # Predict using coefficients
         predictions = []
-        for i in range(len(X)):
+        for i in range(len(X_polynomial)):
             y_pred = 0
             for j, coeff in enumerate(self.coefficients):
                 y_pred += coeff * X_with_intercept[i][j]
@@ -644,6 +661,15 @@ class RidgeRegression:
         # Add ridge penalty to diagonal (except first element for intercept)
         for i in range(1, len(XtX)):
             XtX[i][i] += self.alpha
+
+        # Calculate condition number for RidgeRegression
+        try:
+            # Use LeastSquares helper to compute condition number
+            ls_helper = LeastSquares(type_regression="RidgeRegression")
+            ls_helper.alpha = self.alpha
+            self.condition_number = ls_helper._condition_number(XtX)
+        except:
+            self.condition_number = None
 
         # Compute X^T * y using Pure Python
         Xty = matrix_vector_multiply_transpose_pure(X_with_intercept, y)
@@ -730,9 +756,19 @@ class LassoRegression:
 
     def predict(self, X):
         """Predict using the fitted lasso model."""
+        if not hasattr(self, 'model') or self.model is None:
+            raise ValueError("Model not fitted yet. Call fit() first.")
+        
+        # Convert to array format if needed
+        if hasattr(X, 'tolist'):
+            X_array = X
+        elif isinstance(X, list) and len(X) > 0 and isinstance(X[0], list):
+            X_array = X
+        else:
+            X_array = [[x] for x in X] if isinstance(X, list) else X
+        
         # Sklearn model expects the same format as during training
-        # So we just pass the data directly without any transformation
-        return self.model.predict(X)
+        return self.model.predict(X_array)
 
 
 class ElasticNetRegression:
@@ -761,6 +797,16 @@ class ElasticNetRegression:
 
     def predict(self, X):
         """Predict using the fitted elastic net model."""
+        if not hasattr(self, 'model') or self.model is None:
+            raise ValueError("Model not fitted yet. Call fit() first.")
+        
+        # Convert to array format if needed
+        if hasattr(X, 'tolist'):
+            X_array = X
+        elif isinstance(X, list) and len(X) > 0 and isinstance(X[0], list):
+            X_array = X
+        else:
+            X_array = [[x] for x in X] if isinstance(X, list) else X
+        
         # Sklearn model expects the same format as during training
-        # So we just pass the data directly without any transformation
-        return self.model.predict(X)
+        return self.model.predict(X_array)

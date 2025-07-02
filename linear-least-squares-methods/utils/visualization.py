@@ -547,8 +547,10 @@ class VisualizationData:
 
         # Use same normalization as in training - [0, 1] range
         x_min, x_max = X_orig_flat.min(), X_orig_flat.max()
-        if x_max - x_min > 1e-10:
-            X_normalized = (X_flat - x_min) / (x_max - x_min)
+        x_min_val = X_flat.min()
+        x_max_val = X_flat.max()
+        if x_max_val - x_min_val > 1e-10:
+            X_normalized = (X_flat - x_min_val) / (x_max_val - x_min_val)
         else:
             X_normalized = X_flat
 
