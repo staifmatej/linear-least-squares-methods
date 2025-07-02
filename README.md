@@ -57,18 +57,22 @@ Run the `main.py` file from the root folder and follow the instructions in the t
 ## Installation
 
 - Clone the repository using SSH or HTTPS
-    - **SSH:** `git@github.com:staifmatej/prg-precipitation-forecast-hmm.git`
-    - **HTTPS:** `https://github.com/staifmatej/prg-precipitation-forecast-hmm.git`
+    - **SSH:** `git@github.com:staifmatej/linear-least-squares-methods.git`
+    - **HTTPS:** `https://github.com/staifmatej/linear-least-squares-methods.git`
 
 - Navigate to the project directory
 
-    - `cd prg-precipitation-forecast-hmm`
+    - `cd linear-least-squares-methods`
 
 - Create virtual environment and install dependencies:
 
     - `python3 -m venv venv`
     - `source venv/bin/activate`
     - `pip install -r requirements.txt`
+ 
+    - `python main.py` (for start program)
+    - `pytest` (for testing unit tests)
+    - `pylint . --disable=C0301,C0103` (for PEP8 score)
 
 ## Testing
 
