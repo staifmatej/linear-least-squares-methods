@@ -45,22 +45,13 @@ For a practical demonstration of the program without needing to run it locally, 
 For a more detailed description of the methodology, results, and analysis, please refer to the [staifmatej-report.pdf](staifmatej-report.pdf) file included in this repository.
 
 
-## Usage
-
-Run the `main.py` file from the root folder and follow the instructions in the terminal.
-
-**Recommendation**: For the fastest way to try the program, it is advisable to use the pre-selected "Use example dataset" option.
-
-
-
-
-## Installation
+## Installation & Usage
 
 - Clone the repository using SSH or HTTPS
     - **SSH:** `git@github.com:staifmatej/linear-least-squares-methods.git`
     - **HTTPS:** `https://github.com/staifmatej/linear-least-squares-methods.git`
 
-- Navigate to the project directory
+- Navigate to the project directory (to the root folder)
 
     - `cd linear-least-squares-methods`
 
@@ -82,4 +73,13 @@ To run the tests, execute `pytest` directly in the main project directory (**roo
 
 ## Codestyle
 
-To check code style compliance, run `pylint . --disable=C0301,C0103` from the main project directory. This will analyze all Python files while ignoring line length (C0301) and naming convention (C0103) warnings.
+To check code style compliance, run `pylint . --disable=C0301,C0103` from the **root folder**.
+This will analyze all Python files while ignoring line length (C0301) and naming convention (C0103) warnings.
+  
+
+**Note**:  Note: These pylint warnings are occasionally suppressed
+  directly in the code. I tried to minimize pylint warning
+  suppressions, but sometimes I determined that suppression
+   was the best choice, as making the changes would not
+  help improve my program design skills and would only make
+   the program structure more chaotic.
