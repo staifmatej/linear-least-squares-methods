@@ -37,10 +37,9 @@ This project implements and compares three different
   models to their datasets through an interactive menu
   system.
 
-For a practical demonstration of the program without
-  needing to run it locally, an interactive example is
-  available through the Jupyter notebook:
-  [run_example.ipynb](run_example.ipynb).
+For a practical demonstration of the program without needing to run it locally, an interactive example is
+  available through the Jupyter notebook
+  [run_example.ipynb](run_example.ipynb) file included in this repository
 
 
 For a more detailed description of the methodology, results, and analysis, please refer to the [staifmatej-report.pdf](staifmatej-report.pdf) file included in this repository.
