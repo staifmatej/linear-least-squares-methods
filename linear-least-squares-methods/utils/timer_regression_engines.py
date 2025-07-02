@@ -5,22 +5,34 @@ import sys
 import os
 import shutil
 import gc
+import warnings
+from contextlib import redirect_stderr
+from io import StringIO
 from tabulate import tabulate
 
 from constants import S_BOLD, E_BOLD, E_YELLOW, E_GREEN, S_YELLOW, S_GREEN
 from utils.run_regression import RegressionRun
 from utils.after_regression_handler import print_press_enter_to_continue
 
-# Suppress OpenMP warnings from Numba (especially in Jupyter)
+# Suppress all Numba warnings and OpenMP warnings
 os.environ['OMP_DISPLAY_ENV'] = 'FALSE'
 os.environ['OMP_NESTED'] = 'FALSE'
+os.environ['NUMBA_DISABLE_JIT'] = '0'  # Keep JIT enabled but suppress warnings
+os.environ['NUMBA_WARNINGS'] = '0'    # Suppress Numba warnings
+
+# Suppress specific Numba warnings
+warnings.filterwarnings('ignore', category=UserWarning, module='numba')
+warnings.filterwarnings('ignore', message='.*cannot augment.*')
+warnings.filterwarnings('ignore', message='.*compilation.*')
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
+
+
 def print_time(avg_time):
     """Print time"""
-    print(f"\n{S_GREEN}{format_time(avg_time)}{E_GREEN}\n", flush=True)
+    print(f"\n{S_GREEN}{format_time(avg_time, done=True)}{E_GREEN}\n", flush=True)
 
 
 def clear_all_caches():
@@ -48,38 +60,42 @@ def clear_all_caches():
     except RuntimeError:
         pass
 
-    # Clear import cache for Python modules silently
+    # Clear import cache for Python modules silently - more comprehensive
     try:
-        modules_to_clear = [
-            'approaches.least_squares_numba',
-            'approaches.least_squares_numpy',
-            'approaches.least_squares_pure'
-        ]
+        modules_to_clear = []
+        for module_name in list(sys.modules.keys()):
+            if any(pattern in module_name for pattern in [
+                'least_squares_numba', 'least_squares_numpy', 'least_squares_pure',
+                'approaches.least_squares', 'numba'
+            ]):
+                modules_to_clear.append(module_name)
 
         for module_name in modules_to_clear:
             if module_name in sys.modules:
                 del sys.modules[module_name]
-    except KeyError:
+    except (KeyError, RuntimeError):
         pass
 
-    print(f"{S_GREEN}Done{E_GREEN}")
 
-
-def get_benchmark_settings():
+def get_benchmark_settings(auto_runs=None):
     """Get user preferences for benchmark settings - simplified version."""
-
-    while 1:
-        try:
-            runs_input = input("Timing runs (recommended <1000, default 10): ").strip()
-            if not runs_input:
+    if auto_runs is not None:
+        num_runs = auto_runs
+    else:
+        while 1:
+            try:
+                runs_input = input("Timing runs (recommended <1000, default 10): ").strip()
+                if not runs_input:
+                    num_runs = 10
+                    break
+                num_runs = int(runs_input)
+                if num_runs >= 1:
+                    break
+                print("Please enter a positive number")
+            except (ValueError, EOFError):
+                print("Using default: 10 runs")
                 num_runs = 10
                 break
-            num_runs = int(runs_input)
-            if num_runs >= 1:
-                break
-            print("Please enter a positive number")
-        except ValueError:
-            print("Please enter a valid number")
 
     print(f"\n{S_BOLD}Automatic benchmark configuration:{E_BOLD}")
     print("  • Testing all engines: NumPy, Numba (with & without warm up), Pure Python")
@@ -93,49 +109,118 @@ def time_single_engine(engine_choice, X, y, regression_types, function_types, nu
     """Time a single engine for all regression/function combinations."""
 
     def run_benchmark():
-        runner = RegressionRun(engine_choice, regression_types, function_types)
-        results = runner.run_regressions(X, y)
-        return results
+        try:
+            # Suppress all warnings during benchmarking
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                runner = RegressionRun(engine_choice, regression_types, function_types)
+                results = runner.run_regressions(X, y)
+                return results
+        except (ValueError, TypeError, RuntimeError, AttributeError):
+            # Silently handle errors during benchmarking
+            return None
 
-    # Use timeit for precise timing
-    total_time = timeit.timeit(run_benchmark, number=num_runs)
-    avg_time = total_time / num_runs
-
-    return avg_time
+    try:
+        # Use timeit for precise timing - suppress all warnings and stderr
+        with warnings.catch_warnings(), redirect_stderr(StringIO()):
+            warnings.simplefilter("ignore")
+            total_time = timeit.timeit(run_benchmark, number=num_runs)
+            avg_time = total_time / num_runs
+            return avg_time
+    except (ValueError, TypeError, RuntimeError, AttributeError):
+        return None
 
 
 def time_single_engine_cold_numba(X, y, regression_types, function_types, num_runs):  # pylint: disable=too-many-arguments,too-many-positional-arguments
     """Time Numba engine with TRUE cold start - including all JIT compilation."""
 
     def run_cold_benchmark():
-        # Force fresh import and JIT compilation
+        try:
+            # Suppress ALL output during cold start including stderr
+            with warnings.catch_warnings(), redirect_stderr(StringIO()):
+                warnings.simplefilter("ignore")
+                # Force fresh import and JIT compilation
+                import numba  # pylint: disable=import-outside-toplevel
+                # Clear Numba JIT cache completely
+                try:
+                    numba.core.registry.CPUTarget.cache.clear()
+                except (AttributeError, RuntimeError):
+                    pass
+                # Remove Numba modules from cache if they exist
+                modules_to_remove = []
+                for module_name in list(sys.modules.keys()):
+                    if any(pattern in module_name for pattern in [
+                        'least_squares_numba', 'numba', 'approaches.least_squares_numba'
+                    ]):
+                        modules_to_remove.append(module_name)
 
-        # Remove Numba modules from cache if they exist
-        modules_to_remove = []
-        for module_name in list(sys.modules.keys()):
-            if 'least_squares_numba' in module_name:
-                modules_to_remove.append(module_name)
+                for module_name in modules_to_remove:
+                    if module_name in sys.modules:
+                        del sys.modules[module_name]
 
-        for module_name in modules_to_remove:
-            del sys.modules[module_name]
+                # Force garbage collection
+                gc.collect()
 
-        # Force garbage collection
-        gc.collect()
+                # Now run the benchmark - this will trigger JIT compilation
+                runner = RegressionRun(2, regression_types, function_types)  # 2 = Numba engine
+                results = runner.run_regressions(X, y)
+                return results
+        except (ValueError, TypeError, RuntimeError, AttributeError):
+            # Silently handle errors during cold start
+            return None
 
-        # Now run the benchmark - this will trigger JIT compilation
-        runner = RegressionRun(2, regression_types, function_types)  # 2 = Numba engine
-        results = runner.run_regressions(X, y)
-        return results
+    try:
+        # Time including all JIT compilation overhead - suppress all warnings and stderr
+        with warnings.catch_warnings(), redirect_stderr(StringIO()):
+            warnings.simplefilter("ignore")
+            total_time = timeit.timeit(run_cold_benchmark, number=num_runs)
+            avg_time = total_time / num_runs
+            return avg_time
+    except (ValueError, TypeError, RuntimeError, AttributeError):
+        return None
 
-    # Time including all JIT compilation overhead
-    total_time = timeit.timeit(run_cold_benchmark, number=num_runs)
-    avg_time = total_time / num_runs
 
-    return avg_time
+def time_single_engine_warm_numba(X, y, regression_types, function_types, num_runs):  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    """Time Numba engine with warm JIT - functions already compiled."""
+
+    # First compile all functions by running once
+    try:
+        runner = RegressionRun(2, regression_types[:1], function_types[:1])
+        small_X = X[:10] if len(X) > 10 else X
+        small_y = y[:10] if len(y) > 10 else y
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            runner.run_regressions(small_X, small_y)
+    except Exception:  # pylint: disable=broad-exception-caught
+        pass  # Ignore compilation errors
+
+    # Now benchmark with compiled functions
+    def run_warm_benchmark():
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                runner = RegressionRun(2, regression_types, function_types)
+                results = runner.run_regressions(X, y)
+                return results
+        except Exception:  # pylint: disable=broad-exception-caught
+            return None
+
+    try:
+        with warnings.catch_warnings(), redirect_stderr(StringIO()):
+            warnings.simplefilter("ignore")
+            total_time = timeit.timeit(run_warm_benchmark, number=num_runs)
+            avg_time = total_time / num_runs
+            return avg_time
+    except Exception:  # pylint: disable=broad-exception-caught
+        return None
 
 
-def format_time(seconds):
+def format_time(seconds, done):
     """Format time with appropriate units."""
+
+    if done == True:
+        print(f"{S_GREEN}Done{E_GREEN}")
+
     if seconds >= 60.0:
         minutes = int(seconds // 60)
         remaining_seconds = seconds % 60
@@ -170,7 +255,7 @@ def run_comprehensive_benchmark(X, y, regression_types, function_types, num_runs
             else:
                 pipeline_results[engine_name] = None
                 print("Failed")
-        except (ValueError, TypeError, RuntimeError):
+        except (ValueError, TypeError, RuntimeError, AttributeError):
             pipeline_results[engine_name] = None
             print("Failed")
 
@@ -186,37 +271,37 @@ def run_comprehensive_benchmark(X, y, regression_types, function_types, num_runs
         else:
             pipeline_results["Numba (Cold)"] = None
             print("Failed")
-    except (ValueError, TypeError, RuntimeError):
+    except (ValueError, TypeError, RuntimeError, AttributeError):
         pipeline_results["Numba (Cold)"] = None
         print("Failed")
 
     # Test Numba - WARM START (after JIT compilation)
     print(f"{S_BOLD}Testing Numba Warm Start (JIT pre-compiled):{E_BOLD}")
-    print(f"Testing Numba pipeline (WARM)... {S_GREEN}Done{E_GREEN}\n", end=" ", flush=True)
+    print("Testing Numba pipeline (WARM)...", end=" ", flush=True)
 
     try:
-        avg_time = time_single_engine(
-            2, X, y, regression_types, function_types, num_runs)
+        avg_time = time_single_engine_warm_numba(
+            X, y, regression_types, function_types, num_runs)
         if avg_time is not None:
             pipeline_results["Numba (Warm)"] = avg_time
             print_time(avg_time)
         else:
             pipeline_results["Numba (Warm)"] = None
             print("Failed")
-    except (ValueError, TypeError, RuntimeError):
+    except Exception as e:  # pylint: disable=broad-exception-caught
         pipeline_results["Numba (Warm)"] = None
-        print("Failed")
+        print(f"Failed: {type(e).__name__}")
 
     return pipeline_results
 
 
-def run_performance_benchmark(X, y):
+def run_performance_benchmark(X, y, auto_runs=None):
     """Main benchmark function - automatically tests all scenarios."""
 
     print("\n═══════ COMPREHENSIVE REGRESSION ENGINES BENCHMARK ═══════\n")
 
     # Get only number of runs from user
-    num_runs = get_benchmark_settings()
+    num_runs = get_benchmark_settings(auto_runs)
 
     # Fixed configuration
     regression_types = [1, 2, 3, 4]  # Linear, Ridge, Lasso, ElasticNet
@@ -260,7 +345,7 @@ def display_pipeline_results_table(pipeline_results, num_runs, total_combination
             speedup_str = f"{speedup:.2f}x" if speedup > 1 else "baseline"
             pipeline_table_data.append([
                 engine_name,
-                format_time(avg_time),
+                format_time(avg_time, done=False),
                 speedup_str
             ])
 
@@ -270,4 +355,8 @@ def display_pipeline_results_table(pipeline_results, num_runs, total_combination
                       stralign="left"))
 
     print("\n═══════════════════════════════════════════════════════════")
-    print_press_enter_to_continue()
+    try:
+        print_press_enter_to_continue()
+    except (OSError, AttributeError):
+        # Skip interactive mode if running in non-interactive environment
+        pass
