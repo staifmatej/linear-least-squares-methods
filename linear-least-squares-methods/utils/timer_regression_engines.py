@@ -84,7 +84,7 @@ def get_benchmark_settings(auto_runs=None):
     else:
         while 1:
             try:
-                runs_input = input("Timing runs (recommended <1000, default 10): ").strip()
+                runs_input = input("Timing runs (recommended <= 100, default 10): ").strip()
                 if not runs_input:
                     num_runs = 10
                     break
