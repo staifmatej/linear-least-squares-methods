@@ -218,7 +218,7 @@ def time_single_engine_warm_numba(X, y, regression_types, function_types, num_ru
 def format_time(seconds, done):
     """Format time with appropriate units."""
 
-    if done == True:
+    if done is True:
         print(f"{S_GREEN}Done{E_GREEN}")
 
     if seconds >= 60.0:

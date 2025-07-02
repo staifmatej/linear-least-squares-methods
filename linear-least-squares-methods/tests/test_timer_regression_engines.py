@@ -41,7 +41,7 @@ class TestTimerRegressionEngines(unittest.TestCase):
     def test_format_time_basic(self):
         """Test basic time formatting functionality."""
         try:
-            formatted = format_time(0.001234)
+            formatted = format_time(0.001234, done=False)
             self.assertIsInstance(formatted, str)
             self.assertGreater(len(formatted), 0)
         except Exception as exception:  # pylint: disable=broad-exception-caught
@@ -52,7 +52,7 @@ class TestTimerRegressionEngines(unittest.TestCase):
         test_cases = [0.0, 1e-9, 1e-3, 1.0, 60.0, 3600.0]
         for test_time in test_cases:
             try:
-                formatted = format_time(test_time)
+                formatted = format_time(test_time,done=False)
                 self.assertIsInstance(formatted, str)
                 self.assertGreater(len(formatted), 0)
             except Exception as exception:  # pylint: disable=broad-exception-caught
@@ -234,7 +234,7 @@ class TestTimerRegressionEnginesEdgeCases(unittest.TestCase):
         special_values = [float('inf'), float('-inf'), 0.0]
         for value in special_values:
             try:
-                formatted = format_time(value)
+                formatted = format_time(value,done=False)
                 self.assertIsInstance(formatted, str)
             except Exception:  # pylint: disable=broad-exception-caught
                 pass

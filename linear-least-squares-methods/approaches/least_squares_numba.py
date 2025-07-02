@@ -632,7 +632,15 @@ class LeastSquares:
 
     def __init__(self, type_regression="LinearRegression"):
         self.type_regression = type_regression
-        self.alpha = 1.0  # Default alpha for Ridge/Lasso/ElasticNet
+        # Set different alpha values for different regression types
+        if type_regression == "RidgeRegression":
+            self.alpha = 0.01  # Lower alpha for Ridge
+        elif type_regression == "LassoRegression":
+            self.alpha = 1.0   # Keep higher alpha for Lasso
+        elif type_regression == "ElasticNetRegression":
+            self.alpha = 0.1   # Medium alpha for ElasticNet
+        else:
+            self.alpha = 1.0   # Default
         self.l1_ratio = 0.5  # Default l1_ratio for ElasticNet
         self.max_iter = 50000
         self.tol = 1e-4
