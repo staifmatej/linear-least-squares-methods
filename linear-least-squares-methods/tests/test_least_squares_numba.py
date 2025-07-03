@@ -3,6 +3,9 @@
 import pytest
 from approaches import least_squares_numba
 
+# Tests now work after fixing Numba compilation issues
+# pytestmark = pytest.mark.skip(reason="Numba compilation errors - skipping all Numba tests")
+
 
 class TestNumbaHelperFunctions:
     """Test Numba helper functions."""

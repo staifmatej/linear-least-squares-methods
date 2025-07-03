@@ -225,14 +225,25 @@ class VisualizationData:
                         # Check if this is polynomial LinearRegression
                         degree = result.get('degree', 1)
                         if degree > 1:
-                            # For polynomial LinearRegression, use model's own polynomial feature generation
-                            # This ensures consistent normalization parameters
-                            X_smooth_poly = model._generate_polynomial_features(x_smooth)  # pylint: disable=protected-access
-                            X_smooth_poly_with_intercept = np.column_stack([np.ones(len(x_smooth)), X_smooth_poly])
-                            y_pred_smooth = X_smooth_poly_with_intercept @ model.coefficients
+                            # For Numba models, generate polynomial features using the same approach
+                            if is_numba_python:
+                                # Use generate_polynomial_features directly for Numba models
+                                X_smooth_poly_np = generate_polynomial_features(x_smooth.reshape(-1, 1), degree)
+                                X_smooth_poly = X_smooth_poly_np.tolist()
+                                y_pred_smooth = model.predict(x_smooth.tolist())
+                                y_pred_smooth = self._ensure_numpy_array(y_pred_smooth)
+                            elif hasattr(model, '_generate_polynomial_features'):
+                                # For numpy models with the method
+                                X_smooth_poly = model._generate_polynomial_features(x_smooth)  # pylint: disable=protected-access
+                                X_smooth_poly_with_intercept = np.column_stack([np.ones(len(x_smooth)), X_smooth_poly])
+                                y_pred_smooth = X_smooth_poly_with_intercept @ model.coefficients
+                            else:
+                                # Fallback: use model's predict method
+                                y_pred_smooth = model.predict(x_smooth.tolist() if is_numba_python else x_smooth)
+                                y_pred_smooth = self._ensure_numpy_array(y_pred_smooth)
                         else:
                             # Regular linear regression
-                            y_pred_smooth = model.predict(x_smooth)
+                            y_pred_smooth = model.predict(x_smooth.tolist() if is_numba_python else x_smooth)
                         y_pred_smooth = self._ensure_numpy_array(y_pred_smooth)
                     else:
                         # For Ridge/Lasso/ElasticNet on polynomials
@@ -446,14 +457,25 @@ class VisualizationData:
                         # Check if this is polynomial LinearRegression
                         degree = result.get('degree', 1)
                         if degree > 1:
-                            # For polynomial LinearRegression, use model's own polynomial feature generation
-                            # This ensures consistent normalization parameters
-                            X_smooth_poly = model._generate_polynomial_features(x_smooth)  # pylint: disable=protected-access
-                            X_smooth_poly_with_intercept = np.column_stack([np.ones(len(x_smooth)), X_smooth_poly])
-                            y_pred_smooth = X_smooth_poly_with_intercept @ model.coefficients
+                            # For Numba models, generate polynomial features using the same approach
+                            if is_numba_python:
+                                # Use generate_polynomial_features directly for Numba models
+                                X_smooth_poly_np = generate_polynomial_features(x_smooth.reshape(-1, 1), degree)
+                                X_smooth_poly = X_smooth_poly_np.tolist()
+                                y_pred_smooth = model.predict(x_smooth.tolist())
+                                y_pred_smooth = self._ensure_numpy_array(y_pred_smooth)
+                            elif hasattr(model, '_generate_polynomial_features'):
+                                # For numpy models with the method
+                                X_smooth_poly = model._generate_polynomial_features(x_smooth)  # pylint: disable=protected-access
+                                X_smooth_poly_with_intercept = np.column_stack([np.ones(len(x_smooth)), X_smooth_poly])
+                                y_pred_smooth = X_smooth_poly_with_intercept @ model.coefficients
+                            else:
+                                # Fallback: use model's predict method
+                                y_pred_smooth = model.predict(x_smooth.tolist() if is_numba_python else x_smooth)
+                                y_pred_smooth = self._ensure_numpy_array(y_pred_smooth)
                         else:
                             # Regular linear regression
-                            y_pred_smooth = model.predict(x_smooth)
+                            y_pred_smooth = model.predict(x_smooth.tolist() if is_numba_python else x_smooth)
                         y_pred_smooth = self._ensure_numpy_array(y_pred_smooth)
                     else:
                         degree = result.get('degree', 1)
@@ -546,7 +568,7 @@ class VisualizationData:
         X_orig_flat = X_original.flatten()
 
         # Use same normalization as in training - [0, 1] range
-        x_min, x_max = X_orig_flat.min(), X_orig_flat.max()
+        _, _ = X_orig_flat.min(), X_orig_flat.max()
         x_min_val = X_flat.min()
         x_max_val = X_flat.max()
         if x_max_val - x_min_val > 1e-10:

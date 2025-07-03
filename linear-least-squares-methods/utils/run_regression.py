@@ -338,7 +338,7 @@ class RegressionRun:
             if regression_type == 2:  # Ridge regression
                 # Pro vysoké stupně použít menší alpha
                 alpha = 0.001 if degree <= 5 else 0.00001
-                model = least_squares_numba.RidgeRegression(alpha=alpha)
+                model = least_squares_numba.RidgeRegression(alpha=alpha, degree=degree)
 
                 # Create polynomial features (consistent with NumPy)
                 X_poly_numpy = self._generate_polynomial_features(X, degree)
@@ -376,13 +376,10 @@ class RegressionRun:
 
             if regression_type == 4:  # ElasticNet regression
                 alpha = 0.0001 if degree <= 5 else 0.000001
-                model = least_squares_numba.ElasticNetRegression(alpha=alpha, l1_ratio=0.5)
-
-                # Create polynomial features (consistent with NumPy)
-                X_poly_numpy = self._generate_polynomial_features(X, degree)
-                # Convert NumPy array to list of lists for Numba engine
-                X_poly = X_poly_numpy.tolist()
-                model.fit(X_poly, y)
+                model = least_squares_numba.ElasticNetRegression(alpha=alpha, l1_ratio=0.5, degree=degree)
+                X_flat = X.flatten() if hasattr(X, 'flatten') else [item for sublist in X for item in
+                                                                    sublist] if isinstance(X[0], list) else X
+                model.fit(X_flat, y)
                 coeffs = model.coefficients
                 return {
                     'coefficients': coeffs,

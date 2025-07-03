@@ -185,21 +185,20 @@ def time_single_engine_warm_numba(X, y, regression_types, function_types, num_ru
 
     # First compile all functions by running multiple times with ALL regression and function types
     print(f"{S_YELLOW}Warming up Numba JIT...{E_YELLOW}", end=" ", flush=True)
-    
+
     # Force import of numba module to ensure all @njit functions are available
-    import approaches.least_squares_numba  # pylint: disable=import-outside-toplevel
-    
+
     try:
         # CRITICAL: Run warm-up with the EXACT same parameters as benchmark
         # This ensures identical code paths are compiled
         runner = RegressionRun(2, regression_types, function_types)
-        
+
         # Run twice with FULL data to ensure complete compilation
         for _ in range(2):
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 runner.run_regressions(X, y)
-        
+
         # Extra warm-up for critical functions that might not be hit in all paths
         # Run once more but capture any compilation that might have been missed
         with warnings.catch_warnings():
@@ -207,7 +206,7 @@ def time_single_engine_warm_numba(X, y, regression_types, function_types, num_ru
             # Create fresh runner to ensure no cached results
             fresh_runner = RegressionRun(2, regression_types, function_types)
             fresh_runner.run_regressions(X, y)
-                    
+
         print(f"{S_GREEN}Done{E_GREEN}", flush=True)
     except Exception:  # pylint: disable=broad-exception-caught
         print(f"{S_GREEN}Done{E_GREEN}", flush=True)  # Still show success even if some compilation failed
@@ -375,6 +374,6 @@ def display_pipeline_results_table(pipeline_results, num_runs, total_combination
     print("\n═══════════════════════════════════════════════════════════")
     try:
         print_press_enter_to_continue()
-    except (OSError, AttributeError):
+    except (OSError, AttributeError, Exception):
         # Skip interactive mode if running in non-interactive environment
-        pass
+        print("Benchmark completed!")

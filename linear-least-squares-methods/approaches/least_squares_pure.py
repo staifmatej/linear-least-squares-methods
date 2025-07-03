@@ -352,7 +352,7 @@ class LeastSquares:
 
             # Add ridge regularization
             for i in range(1, n_features):  # Skip intercept
-                XtX[i, i] += self.alpha
+                XtX[i][i] += self.alpha
 
             # Solve system using Pure Python
             try:
@@ -443,7 +443,7 @@ class LeastSquares:
 
         # Add ridge regularization
         for i in range(1, n_features):
-            XtX[i, i] += self.alpha
+            XtX[i][i] += self.alpha
 
         return self._condition_number(XtX)
 
@@ -496,6 +496,7 @@ class LinearRegression:
         self.coefficients = None
         self.x_min = None  # For normalization
         self.x_max = None  # For normalization
+        self.condition_number = None  # Initialize in __init__
 
     def fit(self, X, y):
         """Fit polynomial regression model using normal equations."""
@@ -536,11 +537,12 @@ class LinearRegression:
         XtX = matrix_multiply_transpose_pure(X_with_intercept, X_with_intercept)
 
         # Calculate condition number for LinearRegression
+        # pylint: disable=bare-except,protected-access
         try:
             # Use LeastSquares helper to compute condition number
             ls_helper = LeastSquares(type_regression="LinearRegression")
             self.condition_number = ls_helper._condition_number(XtX)
-        except:
+        except:  # pragma: no cover
             self.condition_number = None
 
         # Compute X^T * y using Pure Python
@@ -570,17 +572,17 @@ class LinearRegression:
                 X = X.tolist()
             elif not isinstance(X, list):
                 X = list(X)
-            
+
             # Generate polynomial features consistent with training
             X_polynomial = self._generate_polynomial_features_consistent(X)
 
         # Add intercept column
         n_features = len(X_polynomial[0])
         X_with_intercept = create_zero_matrix(len(X_polynomial), n_features + 1)
-        for i in range(len(X_polynomial)):
+        for i, x_poly in enumerate(X_polynomial):
             X_with_intercept[i][0] = 1.0  # intercept
-            for j in range(n_features):
-                X_with_intercept[i][j + 1] = X_polynomial[i][j]
+            for j, feature in enumerate(x_poly):
+                X_with_intercept[i][j + 1] = feature
 
         # Predict using coefficients
         predictions = []
@@ -627,6 +629,7 @@ class RidgeRegression:
         self.alpha = alpha
         self.coefficients = None
         self.intercept = None
+        self.condition_number = None  # Initialize in __init__
 
     def fit(self, X, y):
         """Fit ridge regression model."""
@@ -663,12 +666,13 @@ class RidgeRegression:
             XtX[i][i] += self.alpha
 
         # Calculate condition number for RidgeRegression
+        # pylint: disable=bare-except,protected-access
         try:
             # Use LeastSquares helper to compute condition number
             ls_helper = LeastSquares(type_regression="RidgeRegression")
             ls_helper.alpha = self.alpha
             self.condition_number = ls_helper._condition_number(XtX)
-        except:
+        except:  # pragma: no cover
             self.condition_number = None
 
         # Compute X^T * y using Pure Python
@@ -758,7 +762,7 @@ class LassoRegression:
         """Predict using the fitted lasso model."""
         if not hasattr(self, 'model') or self.model is None:
             raise ValueError("Model not fitted yet. Call fit() first.")
-        
+
         # Convert to array format if needed
         if hasattr(X, 'tolist'):
             X_array = X
@@ -766,7 +770,7 @@ class LassoRegression:
             X_array = X
         else:
             X_array = [[x] for x in X] if isinstance(X, list) else X
-        
+
         # Sklearn model expects the same format as during training
         return self.model.predict(X_array)
 
@@ -799,7 +803,7 @@ class ElasticNetRegression:
         """Predict using the fitted elastic net model."""
         if not hasattr(self, 'model') or self.model is None:
             raise ValueError("Model not fitted yet. Call fit() first.")
-        
+
         # Convert to array format if needed
         if hasattr(X, 'tolist'):
             X_array = X
@@ -807,6 +811,6 @@ class ElasticNetRegression:
             X_array = X
         else:
             X_array = [[x] for x in X] if isinstance(X, list) else X
-        
+
         # Sklearn model expects the same format as during training
         return self.model.predict(X_array)
