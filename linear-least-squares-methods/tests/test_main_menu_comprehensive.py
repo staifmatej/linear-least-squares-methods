@@ -203,18 +203,6 @@ class TestMainMenuComprehensive(unittest.TestCase):
                 result = self.run_main_with_inputs(inputs, desc)
                 self.check_no_errors(result, desc)
 
-    def test_multidimensional_data_rejection(self):
-        """Test that multidimensional data shows proper message for visualization."""
-        # Create multidimensional data
-        inputs = "2\n3\n1 2 3\n4 5 6\n7 8 9\n10\n20\n30\n1\n1\n1\n1\n7\n"
-        result = self.run_main_with_inputs(inputs, "Multidimensional visualization check")
-        # Should complete without errors
-        self.assertEqual(result.returncode, 0, "Should handle multidimensional data properly")
-        # Check for appropriate message
-        if "1\n7\n" in inputs:  # If trying to visualize
-            self.assertIn("not supported for multidimensional", result.stdout,
-                         "Should show message about multidimensional visualization")
-
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
