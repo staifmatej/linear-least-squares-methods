@@ -121,12 +121,26 @@ def time_single_engine(engine_choice, X, y, regression_types, function_types, nu
             return None
 
     try:
-        # Use timeit for precise timing - suppress all warnings and stderr
+        # WARM-UP RUN: Run once to handle first-time initialization overhead
         with warnings.catch_warnings(), redirect_stderr(StringIO()):
             warnings.simplefilter("ignore")
-            total_time = timeit.timeit(run_benchmark, number=num_runs)
-            avg_time = total_time / num_runs
-            return avg_time
+            run_benchmark()  # Discard this result
+
+        # Collect individual run times for statistics
+        run_times = []
+        with warnings.catch_warnings(), redirect_stderr(StringIO()):
+            warnings.simplefilter("ignore")
+            for _ in range(num_runs):
+                single_time = timeit.timeit(run_benchmark, number=1)
+                run_times.append(single_time)
+
+        # Calculate statistics
+        avg_time = sum(run_times) / len(run_times)
+        min_time = min(run_times)
+        max_time = max(run_times)
+
+        # Return average, min, max
+        return {'avg': avg_time, 'min': min_time, 'max': max_time, 'runs': run_times}
     except (ValueError, TypeError, RuntimeError, AttributeError):
         return None
 
@@ -171,11 +185,19 @@ def time_single_engine_cold_numba(X, y, regression_types, function_types, num_ru
 
     try:
         # Time including all JIT compilation overhead - suppress all warnings and stderr
+        run_times = []
         with warnings.catch_warnings(), redirect_stderr(StringIO()):
             warnings.simplefilter("ignore")
-            total_time = timeit.timeit(run_cold_benchmark, number=num_runs)
-            avg_time = total_time / num_runs
-            return avg_time
+            for _ in range(num_runs):
+                single_time = timeit.timeit(run_cold_benchmark, number=1)
+                run_times.append(single_time)
+
+        # Calculate statistics
+        avg_time = sum(run_times) / len(run_times)
+        min_time = min(run_times)
+        max_time = max(run_times)
+
+        return {'avg': avg_time, 'min': min_time, 'max': max_time, 'runs': run_times}
     except (ValueError, TypeError, RuntimeError, AttributeError):
         return None
 
@@ -223,11 +245,19 @@ def time_single_engine_warm_numba(X, y, regression_types, function_types, num_ru
             return None
 
     try:
+        run_times = []
         with warnings.catch_warnings(), redirect_stderr(StringIO()):
             warnings.simplefilter("ignore")
-            total_time = timeit.timeit(run_warm_benchmark, number=num_runs)
-            avg_time = total_time / num_runs
-            return avg_time
+            for _ in range(num_runs):
+                single_time = timeit.timeit(run_warm_benchmark, number=1)
+                run_times.append(single_time)
+
+        # Calculate statistics
+        avg_time = sum(run_times) / len(run_times)
+        min_time = min(run_times)
+        max_time = max(run_times)
+
+        return {'avg': avg_time, 'min': min_time, 'max': max_time, 'runs': run_times}
     except Exception:  # pylint: disable=broad-exception-caught
         return None
 
@@ -263,12 +293,14 @@ def run_comprehensive_benchmark(X, y, regression_types, function_types, num_runs
     for engine_id, engine_name in engines.items():
         print(f"Testing {engine_name} full pipeline...", end=" ", flush=True)
         clear_all_caches()  # Clear for each test
+        # Force garbage collection before timing
+        gc.collect()
         try:
-            avg_time = time_single_engine(
+            timing_result = time_single_engine(
                 engine_id, X, y, regression_types, function_types, num_runs)
-            if avg_time is not None:
-                pipeline_results[engine_name] = avg_time
-                print_time(avg_time)
+            if timing_result is not None:
+                pipeline_results[engine_name] = timing_result
+                print_time(timing_result['avg'])
             else:
                 pipeline_results[engine_name] = None
                 print("Failed")
@@ -280,11 +312,11 @@ def run_comprehensive_benchmark(X, y, regression_types, function_types, num_runs
     print("Testing Numba pipeline (COLD)...", end=" ", flush=True)
     clear_all_caches()  # Critical: clear ALL caches for true cold start
     try:
-        avg_time = time_single_engine_cold_numba(
+        timing_result = time_single_engine_cold_numba(
             X, y, regression_types, function_types, num_runs)
-        if avg_time is not None:
-            pipeline_results["Numba (Cold)"] = avg_time
-            print_time(avg_time)
+        if timing_result is not None:
+            pipeline_results["Numba (Cold)"] = timing_result
+            print_time(timing_result['avg'])
         else:
             pipeline_results["Numba (Cold)"] = None
             print("Failed")
@@ -297,11 +329,11 @@ def run_comprehensive_benchmark(X, y, regression_types, function_types, num_runs
     print("Testing Numba pipeline (WARM)...", end=" ", flush=True)
 
     try:
-        avg_time = time_single_engine_warm_numba(
+        timing_result = time_single_engine_warm_numba(
             X, y, regression_types, function_types, num_runs)
-        if avg_time is not None:
-            pipeline_results["Numba (Warm)"] = avg_time
-            print_time(avg_time)
+        if timing_result is not None:
+            pipeline_results["Numba (Warm)"] = timing_result
+            print_time(timing_result['avg'])
         else:
             pipeline_results["Numba (Warm)"] = None
             print("Failed")
@@ -340,7 +372,7 @@ def run_performance_benchmark(X, y, auto_runs=None):
     display_pipeline_results_table(pipeline_results, num_runs, total_combinations)
 
 
-def display_pipeline_results_table(pipeline_results, num_runs, total_combinations):
+def display_pipeline_results_table(pipeline_results, num_runs, total_combinations):  # pylint: disable=too-many-locals
     """Display pipeline results using tabulate for nice formatting."""
 
     print(f"{S_BOLD}══════════ FULL IMPLEMENTATION BENCHMARK RESULTS ══════════{E_BOLD}\n")
@@ -350,24 +382,37 @@ def display_pipeline_results_table(pipeline_results, num_runs, total_combination
     valid_pipeline = [(k, v) for k, v in pipeline_results.items() if v is not None]
 
     if valid_pipeline:
-        # Sort by performance (fastest first)
-        valid_pipeline.sort(key=lambda x: x[1])
-        fastest_pipeline_time = valid_pipeline[0][1]
+        # Sort by performance (fastest first based on average time)
+        valid_pipeline.sort(key=lambda x: x[1]['avg'])
+        fastest_pipeline_time = valid_pipeline[0][1]['avg']
 
         print("Full implementation with fitting, transformation, and prediction")
         print(f"Operations: {total_combinations} combinations | Runs: {num_runs} each\n")
 
-        for engine_name, avg_time in valid_pipeline:
+        for engine_name, timing_data in valid_pipeline:
+            avg_time = timing_data['avg']
+            min_time = timing_data['min']
+            max_time = timing_data['max']
+
+            # Calculate variance percentage
+            variance_pct = ((max_time - min_time) / avg_time) * 100 if avg_time > 0 else 0
+
             speedup = avg_time / fastest_pipeline_time
             speedup_str = f"{speedup:.2f}x" if speedup > 1 else "baseline"
+
+            # Format time with variance info
+            time_str = format_time(avg_time, done=False)
+            variance_str = f"±{variance_pct:.1f}%"
+
             pipeline_table_data.append([
                 engine_name,
-                format_time(avg_time, done=False),
+                time_str,
+                variance_str,
                 speedup_str
             ])
 
         print(tabulate(pipeline_table_data,
-                      headers=["Engine", "Average Time", "vs Fastest"],
+                      headers=["Engine", "Average Time", "Variance", "vs Fastest"],
                       tablefmt="rounded_grid",
                       stralign="left"))
 
