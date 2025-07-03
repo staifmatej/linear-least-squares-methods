@@ -5,9 +5,8 @@ import os
 import warnings
 import math
 from numba import njit
-from numba.typed import List
+from numba.typed import List # pylint: disable=E0611, W0611
 from sklearn.linear_model import Lasso, ElasticNet
-from constants import S_RED, E_RED
 
 # Configure Numba for optimal performance
 os.environ['NUMBA_DISABLE_ERROR_MESSAGE_HIGHLIGHTING'] = '1'
@@ -113,6 +112,7 @@ def custom_matrix_vector_multiply(A_flat, v, m, n):
         result.append(val)
     return result
 
+# pylint: disable=R0912
 @njit
 def custom_solve_linear_system(A_flat, b, n):
     """Solve Ax = b - like numpy.linalg.solve but @njit."""
@@ -725,8 +725,8 @@ def _compute_predictions_core(X_with_intercept, coefficients):
     predictions = zeros_1d(n_samples)  # Use @njit compatible function
     for i in range(n_samples):
         y_pred = 0.0
-        for j in range(len(coefficients)):
-            y_pred += coefficients[j] * X_with_intercept[i][j]
+        for j, coef in enumerate(coefficients):
+            y_pred += coef * X_with_intercept[i][j]
         predictions[i] = y_pred
     return predictions
 
@@ -746,10 +746,10 @@ def _convert_flat_to_polynomial_features(flat_features, n, degree):
             polynomial_features[i][d] = flat_features[i * degree + d]
     return polynomial_features
 
-def generate_polynomial_features_numba(x, degree, x_min, x_max, normalize):
+def generate_polynomial_features_numba(x, degree, x_min, x_max, _):
     """Generate polynomial features using DIRECT @njit - REAL NUMBA OPTIMIZATION!"""
     # Use @njit optimized functions for REAL speed benefits
-    
+
     # Handle both 1D and 2D inputs
     if isinstance(x[0], list):
         # For 2D input, flatten to 1D
@@ -796,6 +796,7 @@ def _generate_polynomial_features_pure_python(x, degree, x_min, x_max, normalize
     return polynomial_features
 
 
+# pylint: disable=R0903
 class LeastSquares:
     """LeastSquares implementation using Numba-accelerated functions."""
 
@@ -819,7 +820,7 @@ class LeastSquares:
         if type_regression not in types_of_regression:
             raise ValueError(f"Type {self.type_regression} is not a valid predefined type.")
 
-    # pylint: disable=duplicate-code,too-many-branches,too-many-statements,too-many-locals
+    # pylint: disable=duplicate-code,too-many-branches,too-many-statements,too-many-locals, R1710
     def multivariate_ols(self, X, Y):
         """
         X: feature matrix
@@ -846,7 +847,7 @@ class LeastSquares:
             # Check for singular matrix
             try:
                 # Add tiny regularization for numerical stability
-                for i in range(len(X_T_X)):
+                for i, _ in enumerate(X_T_X):
                     X_T_X[i][i] += 1e-10
 
                 # Compute eigenvalues for condition number
@@ -997,8 +998,8 @@ class LinearRegression:
         predictions = []
         for i in range(n_samples):
             y_pred = 0.0
-            for j in range(len(self.coefficients)):
-                y_pred += self.coefficients[j] * X_with_intercept[i][j]
+            for j, coef in enumerate(self.coefficients):
+                y_pred += coef * X_with_intercept[i][j]
             predictions.append(y_pred)
 
         return predictions
@@ -1076,8 +1077,8 @@ class RidgeRegression:
         predictions = []
         for i in range(n_samples):
             y_pred = 0.0
-            for j in range(len(self.coefficients)):
-                y_pred += self.coefficients[j] * X_with_intercept[i][j]
+            for j, coef in enumerate(self.coefficients):
+                y_pred += coef * X_with_intercept[i][j]
             predictions.append(y_pred)
 
         return predictions
@@ -1153,8 +1154,8 @@ class LassoRegression:
         predictions = []
         for i in range(n_samples):
             y_pred = 0.0
-            for j in range(len(self.coefficients)):
-                y_pred += self.coefficients[j] * X_with_intercept[i][j]
+            for j, coef in enumerate(self.coefficients):
+                y_pred += coef * X_with_intercept[i][j]
             predictions.append(y_pred)
 
         return predictions
@@ -1232,8 +1233,8 @@ class ElasticNetRegression:
         predictions = []
         for i in range(n_samples):
             y_pred = 0.0
-            for j in range(len(self.coefficients)):
-                y_pred += self.coefficients[j] * X_with_intercept[i][j]
+            for j, coef in enumerate(self.coefficients):
+                y_pred += coef * X_with_intercept[i][j]
             predictions.append(y_pred)
 
         return predictions

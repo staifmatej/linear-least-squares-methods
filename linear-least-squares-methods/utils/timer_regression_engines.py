@@ -374,6 +374,6 @@ def display_pipeline_results_table(pipeline_results, num_runs, total_combination
     print("\n═══════════════════════════════════════════════════════════")
     try:
         print_press_enter_to_continue()
-    except (OSError, AttributeError, Exception):
+    except (OSError, AttributeError) as e:
         # Skip interactive mode if running in non-interactive environment
-        print("Benchmark completed!")
+        print(f"Benchmark completed: {e}")
