@@ -7,13 +7,11 @@ This project implements and compares three different
   computational approaches for
   regression models: **Pure Python** (using only for-loops),
   **NumPy** (vectorized operations), and **Numba**
-  (JIT-compiled Python). Each engine implements four
-  regression models from scratch: **Linear Regression** and
-   **Ridge Regression** are implemented entirely without
-  external libraries, while **Lasso Regression** and
-  **Elastic Net Regression** utilize only `from
-  sklearn.linear_model import Lasso, ElasticNet` for
-  comparison purposes.
+  (JIT-compiled Python). Each engine implements four regression models: **Linear Regression** and 
+**Ridge Regression** are implemented from scratch using only basic 
+mathematical operations, while **Lasso Regression** and **Elastic Net 
+Regression** wrap sklearn implementations to provide consistent interface 
+and enable performance comparison across all methods.
 
   This project extends beyond the scope of the **Linear 
   Algebra II** course at **CTU FIT**, where the least
