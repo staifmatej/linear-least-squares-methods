@@ -1,7 +1,3 @@
-``` 
-TODO: PRED UKONCENIM PROJEKTU MUSIM ODEBRAT Z .gitignore CLAUDE CODE SOUBORY, ABY TO BYLO HEZCI
-```
-
 # Linear Least Squares Methods
 
 

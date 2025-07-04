@@ -412,7 +412,7 @@ def display_pipeline_results_table(pipeline_results, num_runs, total_combination
             ])
 
         print(tabulate(pipeline_table_data,
-                      headers=["Engine", "Average Time", "Variance", "vs Fastest"],
+                      headers=["Engine", "Average Time", "Range %", "vs Fastest"],
                       tablefmt="rounded_grid",
                       stralign="left"))
 
