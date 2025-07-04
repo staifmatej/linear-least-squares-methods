@@ -31,13 +31,13 @@ and enable performance comparison across all methods.
   models to their datasets through an interactive menu
   system.
 
-## Sample of program work
-
-For a practical demonstration of the program without needing to run it locally, an interactive example is available through the Jupyter notebook [run_example.ipynb](run_example.ipynb) file included in this repository
-
 ## Detailed Report
 
 For a more detailed description of the methodology, results, and analysis, please refer to the [staifmatej-report.pdf](staifmatej-report.pdf) file included in this repository.
+
+## Sample of program work
+
+For a practical demonstration of the program without needing to run it locally, an interactive example is available through the Jupyter notebook [run_example.ipynb](run_example.ipynb) file included in this repository
 
 
 ## Installation & Usage
