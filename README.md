@@ -4,8 +4,8 @@
 ## Abstract
 
 This project implements and compares three different
-  computational approaches for linear least squares
-  regression: **Pure Python** (using only for-loops),
+  computational approaches for
+  regression models: **Pure Python** (using only for-loops),
   **NumPy** (vectorized operations), and **Numba**
   (JIT-compiled Python). Each engine implements four
   regression models from scratch: **Linear Regression** and
