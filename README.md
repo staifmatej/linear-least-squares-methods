@@ -74,7 +74,7 @@ To check code style compliance, run `pylint . --disable=C0301,C0103` from the **
 This will analyze all Python files while ignoring line length (C0301) and naming convention (C0103) warnings.
   
 
-**Note**:  Note: These pylint warnings are occasionally suppressed
+**Note**: These pylint warnings are occasionally suppressed
   directly in the code. I tried to minimize pylint warning
   suppressions, but sometimes I determined that suppression
    was the best choice, as making the changes would not
