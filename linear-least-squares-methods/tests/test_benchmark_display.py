@@ -43,7 +43,7 @@ class TestBenchmarkDisplay(unittest.TestCase):
             output = captured_output.getvalue()
 
             # Check that variance is displayed
-            self.assertIn("Variance", output, "Should show Variance column")
+            self.assertIn("Range %", output, "Should show Variance column")
             self.assertIn("±", output, "Should show ± symbol for variance")
             self.assertIn("Average Time", output, "Should show Average Time column")
 
