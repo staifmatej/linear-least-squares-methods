@@ -1,5 +1,6 @@
-# Linear Least Squares Methods
+![FYI](FYI.png)
 
+# Linear Least Squares Methods
 
 ## Abstract
 
