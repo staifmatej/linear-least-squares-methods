@@ -49,7 +49,7 @@ For a practical demonstration of the program without needing to run it locally, 
 
 - Navigate to the project directory (to the root folder)
 
-    - `cd linear-least-squares-methods`
+    - `cd linear-least-squares-methods/linear-least-squares-methods`
 
 - Create virtual environment and install dependencies:
 
