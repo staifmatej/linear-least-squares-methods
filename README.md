@@ -2,6 +2,8 @@
 
 # Linear Least Squares Methods
 
+***My disclosure of using an LLM in this project*** [here](#llm-large-language-models-usage-declaration)
+
 ## Abstract
 
 This project implements and compares three different
@@ -79,3 +81,12 @@ This will analyze all Python files while ignoring line length (C0301) and naming
    was the best choice, as making the changes would not
   help improve my program design skills and would only make
    the program structure more chaotic.
+
+
+## LLM (Large Language Models) Usage Declaration
+
+I completed the main work on this project myself, but I used LLM tools for specific purposes. Since English is not my native language and I want to improve it further, and I want to use international language at a professional level in my projects too, I consulted with LLM models for grammar corrections, translations, and modifications. Specifically for English, I used OpenAI's `Chat-GPT 03-high` model.
+
+* I **wrote** `staifmatej-report.pdf` **100% in my own words**, but then I modified it to English using LLM with grammar corrections.
+
+* I did the same thing with docstrings and comments in the code, which **I always wrote myself**, but sometimes when I was not sure about my 100% grammatical accuracy, I translated them using LLM model.
