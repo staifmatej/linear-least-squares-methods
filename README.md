@@ -34,6 +34,11 @@ and enable performance comparison across all methods.
   models to their datasets through an interactive menu
   system.
 
+
+**Important note:**
+I made this project before I finished the Machine Learning 1 (BI-ML1) course at CTU FIT. I did it because I was really interested in Linear Algebra 2. This was my first time working with regression models, both in practice and theory.
+
+
 ## Detailed Report
 
 For a more detailed description of the methodology, results, and analysis, please refer to the [staifmatej-report.pdf](staifmatej-report.pdf) file included in this repository.
